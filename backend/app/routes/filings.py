@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import httpx
 
 from app.services.filing_fetcher import FilingFetcher, InvalidFilingUrlError
+from app.services.filing_cache import filing_cache
 from app.utils.sanitize_html import sanitize
 
 
@@ -46,6 +47,9 @@ async def open_filing(request: OpenFilingRequest):
         
         # Fetch raw HTML
         raw_html = await fetcher.fetch(request.url)
+        
+        # Cache raw HTML for Phase 3 chat retrieval
+        filing_cache.store(filing_id, raw_html, request.url)
         
         # Sanitize HTML
         sanitized_html = sanitize(raw_html)
