@@ -1,4 +1,4 @@
-import { TextSelection } from "@/lib/selection-utils"
+import { TextSelection, TableSelection } from "@/lib/selection-utils"
 
 function calculateTextOffset(element: Element, node: Node, offset: number): number {
   let currentOffset = 0
@@ -50,5 +50,47 @@ export function readTextSelection(container: HTMLElement): { selection: TextSele
     selection: { type: "text", elementIndex, startOffset, endOffset },
     bounds,
     selectedText
+  }
+}
+
+/**
+ * Read table cell selection from a completed drag operation.
+ * Returns null if cells are not in the same data table.
+ */
+export function readTableCellSelection(
+  startCell: HTMLElement,
+  endCell: HTMLElement
+): { selection: TableSelection; bounds: DOMRect } | null {
+  const startTable = startCell.getAttribute("data-table")
+  const endTable = endCell.getAttribute("data-table")
+  
+  if (!startTable || startTable !== endTable) return null
+  
+  const startRow = parseInt(startCell.getAttribute("data-row") || "-1", 10)
+  const startCol = parseInt(startCell.getAttribute("data-col") || "-1", 10)
+  const endRow = parseInt(endCell.getAttribute("data-row") || "-1", 10)
+  const endCol = parseInt(endCell.getAttribute("data-col") || "-1", 10)
+  
+  if (startRow < 0 || startCol < 0 || endRow < 0 || endCol < 0) return null
+  
+  const startRect = startCell.getBoundingClientRect()
+  const endRect = endCell.getBoundingClientRect()
+  const bounds = new DOMRect(
+    Math.min(startRect.left, endRect.left),
+    Math.min(startRect.top, endRect.top),
+    Math.abs(endRect.right - startRect.left),
+    Math.abs(endRect.bottom - startRect.top)
+  )
+  
+  return {
+    selection: {
+      type: "table",
+      tableIndex: parseInt(startTable, 10),
+      startRow: Math.min(startRow, endRow),
+      startCol: Math.min(startCol, endCol),
+      endRow: Math.max(startRow, endRow),
+      endCol: Math.max(startCol, endCol)
+    },
+    bounds
   }
 }

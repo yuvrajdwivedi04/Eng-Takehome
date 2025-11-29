@@ -12,14 +12,20 @@ import { ChatPanel } from "@/components/chat/ChatPanel"
 import { ChatMessage } from "@/components/chat/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { parseSelectionFromUrl, Selection, TextSelection } from "@/lib/selection-utils"
+import { parseSelectionFromUrl, Selection, TextSelection, TableSelection } from "@/lib/selection-utils"
 import { SelectionMenu } from "@/components/viewer/SelectionMenu"
+import { TableSelectionMenu } from "@/components/viewer/TableSelectionMenu"
 import { MessageSquare } from "lucide-react"
 
 type SelectionData = {
   selection: TextSelection
   bounds: DOMRect
   selectedText: string
+}
+
+type TableSelectionData = {
+  selection: TableSelection
+  bounds: DOMRect
 }
 
 export default function ViewPage() {
@@ -45,6 +51,7 @@ export default function ViewPage() {
   }, [filingId])
   const [urlSelection, setUrlSelection] = useState<Selection | null>(null)
   const [activeTextSelection, setActiveTextSelection] = useState<SelectionData | null>(null)
+  const [activeTableSelection, setActiveTableSelection] = useState<TableSelectionData | null>(null)
   const [confirmedSelection, setConfirmedSelection] = useState<TextSelection | null>(null)
   const [highlightedElement, setHighlightedElement] = useState<number | null>(null)
   const scrollContainerRef = useRef<HTMLElement>(null)
@@ -73,6 +80,7 @@ export default function ViewPage() {
         
         // Clear selection state when switching documents
         setActiveTextSelection(null)
+        setActiveTableSelection(null)
         setConfirmedSelection(null)
         setHighlightedElement(null)
         
@@ -209,6 +217,7 @@ export default function ViewPage() {
                 highlightedElement={highlightedElement}
                 isDeepLink={!!urlSelection}
                 onTextSelection={setActiveTextSelection}
+                onTableSelection={setActiveTableSelection}
               />
               {activeTextSelection && url && (
                 <SelectionMenu 
@@ -222,6 +231,15 @@ export default function ViewPage() {
                     setActiveTextSelection(null)
                   }}
                   onDismiss={() => setActiveTextSelection(null)}
+                />
+              )}
+              {activeTableSelection && url && (
+                <TableSelectionMenu
+                  selection={activeTableSelection.selection}
+                  bounds={activeTableSelection.bounds}
+                  containerRef={scrollContainerRef}
+                  filingUrl={url}
+                  onDismiss={() => setActiveTableSelection(null)}
                 />
               )}
             </div>

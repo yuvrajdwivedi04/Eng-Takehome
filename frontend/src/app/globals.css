@@ -157,6 +157,21 @@
   }
 }
 
+/* Table cell selection - only on data tables with export wrapper */
+.table-export-wrapper td[data-row]:hover,
+.table-export-wrapper th[data-row]:hover {
+  outline: 1px dashed rgba(59, 130, 246, 0.5);
+  cursor: cell;
+}
+
+.table-cell-selecting {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+.table-cell-selected {
+  background-color: rgba(134, 239, 172, 0.4) !important;
+}
+
 /* Toast animations */
 .animate-toast-in {
   animation: toast-in 0.3s ease-out forwards;

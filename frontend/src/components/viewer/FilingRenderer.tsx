@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { getTableCsvUrl, getTableXlsxUrl } from "@/lib/api"
-import { Selection, getShareableUrl, TextSelection } from "@/lib/selection-utils"
+import { Selection, getShareableUrl, TextSelection, TableSelection } from "@/lib/selection-utils"
 import { TextHighlight } from "./TextHighlight"
+import { TableHighlight } from "./TableHighlight"
 import { FilingContent } from "./FilingContent"
 
 interface FilingRendererProps {
@@ -14,9 +15,10 @@ interface FilingRendererProps {
   highlightedElement?: number | null
   isDeepLink?: boolean
   onTextSelection?: (data: { selection: TextSelection; bounds: DOMRect; selectedText: string } | null) => void
+  onTableSelection?: (data: { selection: TableSelection; bounds: DOMRect } | null) => void
 }
 
-export function FilingRenderer({ html, filingId, filingUrl, selection, highlightedElement, isDeepLink = false, onTextSelection }: FilingRendererProps) {
+export function FilingRenderer({ html, filingId, filingUrl, selection, highlightedElement, isDeepLink = false, onTextSelection, onTableSelection }: FilingRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [contentReady, setContentReady] = useState(false)
 
@@ -185,9 +187,13 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, highlight
       {contentReady && selection && selection.type === "text" && (
         <TextHighlight selection={selection} isDeepLink={isDeepLink} />
       )}
+      {contentReady && selection && selection.type === "table" && (
+        <TableHighlight selection={selection} isDeepLink={isDeepLink} />
+      )}
       <FilingContent
         html={processedHtml}
         onTextSelection={onTextSelection}
+        onTableSelection={onTableSelection}
         onReady={() => setContentReady(true)}
       />
     </div>

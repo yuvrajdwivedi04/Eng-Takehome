@@ -1,6 +1,8 @@
 from bs4 import BeautifulSoup
 import re
 
+from app.utils.table_detection import is_data_table
+
 
 def _unhide_sec_containers(soup: BeautifulSoup) -> None:
     """
@@ -109,8 +111,17 @@ def sanitize(html: str) -> str:
     _unhide_sec_containers(soup)
     
     # Add data-table-index attributes for CSV export feature
+    # Also add cell position attributes for data tables (for cell range selection)
     for index, table in enumerate(soup.find_all("table")):
         table["data-table-index"] = str(index)
+        
+        # Add cell position attributes for data tables only
+        if is_data_table(table):
+            for row_idx, tr in enumerate(table.find_all("tr")):
+                for col_idx, cell in enumerate(tr.find_all(["td", "th"], recursive=False)):
+                    cell["data-row"] = str(row_idx)
+                    cell["data-col"] = str(col_idx)
+                    cell["data-table"] = str(index)
     
     # Add data-element-index attributes for deep linking feature
     element_index = 0

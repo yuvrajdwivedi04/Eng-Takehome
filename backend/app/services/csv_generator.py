@@ -11,8 +11,9 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.styles import Font
 import csv
-import re
 import logging
+
+from app.utils.table_detection import is_data_table
 
 logger = logging.getLogger(__name__)
 
@@ -124,30 +125,6 @@ def collapse_empty_columns(headers: list[str], rows: list[list[str]]) -> tuple[l
     ]
     
     return new_headers, new_rows
-
-
-def is_data_table(table_element) -> bool:
-    """
-    Filter layout tables from data tables using financial heuristics.
-    
-    Returns True if the table appears to contain actual data (financial tables,
-    data grids) rather than being used for layout purposes.
-    """
-    rows = table_element.find_all('tr')
-    cells = table_element.find_all(['td', 'th'])
-    text = table_element.get_text(strip=True)
-    
-    # Must have structure
-    if len(rows) < 2 or len(cells) < 6 or len(text) < 50:
-        return False
-    
-    # Financial content indicators
-    has_currency = bool(re.search(r'[\$€£¥]', text))
-    has_formatted_nums = bool(re.search(r'\d{1,3}(,\d{3})+', text))
-    has_percentages = bool(re.search(r'\d+\.?\d*\s*%', text))
-    num_count = len(re.findall(r'\d+', text))
-    
-    return has_currency or has_formatted_nums or has_percentages or num_count >= 8
 
 
 def extract_table_from_element(table_element) -> TableData | None:
