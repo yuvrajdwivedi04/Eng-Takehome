@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import filings, chat
+from app.routes import filings, chat, company
 
 app = FastAPI(title="Endex SEC Filings API")
 
@@ -13,4 +13,5 @@ app.add_middleware(
 
 app.include_router(filings.router)
 app.include_router(chat.router)
+app.include_router(company.router)
 

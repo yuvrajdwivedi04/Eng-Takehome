@@ -1,8 +1,2 @@
-export interface FilingSection {
-  id: string
-  level: number
-  text: string
-}
-
-
-
+// Viewer-specific types
+// Note: FilingSection type was removed as TOC functionality was replaced by Exhibits sidebar

@@ -44,7 +44,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   return (
     <div className="border-t border-white/10 bg-dark p-4">
-      <div className="flex gap-3 items-end">
+      <div className="flex gap-3 items-stretch">
         <Textarea
           ref={textareaRef}
           value={value}
@@ -52,13 +52,13 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           onKeyDown={handleKeyDown}
           placeholder="Ask a question about this filing..."
           disabled={disabled}
-          className="flex-1 min-h-[60px] max-h-[200px] resize-none rounded-none bg-input-bg border-white/20 focus:border-white text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors px-3 py-3 text-sm overflow-hidden"
+          className="flex-1 min-h-[44px] max-h-[200px] resize-none rounded-none bg-input-bg border-white/20 focus:border-white text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors px-3 py-2.5 text-sm overflow-hidden"
           rows={1}
         />
         <Button
           onClick={handleSend}
           disabled={disabled || !value.trim()}
-          className="h-11 w-11 rounded-none bg-white text-dark hover:bg-brand-teal hover:text-white transition-all duration-300 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-dark flex-shrink-0"
+          className="w-11 rounded-none bg-white text-dark hover:bg-brand-teal hover:text-white transition-all duration-300 disabled:opacity-50 disabled:hover:bg-white disabled:hover:text-dark flex-shrink-0 self-stretch"
         >
           <ArrowUp className="h-4 w-4" />
         </Button>

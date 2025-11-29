@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { FilingSection } from "./types"
 import { getTableCsvUrl, getTableXlsxUrl } from "@/lib/api"
 import { Selection, getShareableUrl, TextSelection } from "@/lib/selection-utils"
 import { TextHighlight } from "./TextHighlight"
@@ -13,101 +12,10 @@ interface FilingRendererProps {
   filingUrl: string
   selection?: Selection | null
   highlightedElement?: number | null
-  onSectionsExtracted: (sections: FilingSection[]) => void
   onTextSelection?: (data: { selection: TextSelection; bounds: DOMRect } | null) => void
 }
 
-function getTitleFromTarget(element: Element): string | null {
-  const bold = element.querySelector("b, strong")
-  if (bold?.textContent?.trim()) return bold.textContent.trim()
-  
-  const heading = element.querySelector("h1, h2, h3, h4, h5, h6")
-  if (heading?.textContent?.trim()) return heading.textContent.trim()
-  
-  let sibling = element.nextElementSibling
-  for (let i = 0; i < 5 && sibling; i++) {
-    const siblingTitle = sibling.querySelector("b, strong, h1, h2, h3, h4, h5, h6")
-    if (siblingTitle?.textContent?.trim()) {
-      return siblingTitle.textContent.trim()
-    }
-    
-    const siblingText = sibling.textContent?.trim()
-    if (siblingText && siblingText.length > 3 && siblingText.length < 300) {
-      return siblingText
-    }
-    
-    sibling = sibling.nextElementSibling
-  }
-  
-  return null
-}
-
-function extractSectionsFromToc(doc: Document): FilingSection[] {
-  const sections: FilingSection[] = []
-  const seenIds = new Set<string>()
-  
-  const tocLinks = doc.querySelectorAll('a[href^="#"]')
-  
-  let sentinelIndex = 0
-  for (const link of tocLinks) {
-    const href = link.getAttribute("href")
-    if (!href || href === "#") continue
-    
-    const targetId = href.substring(1)
-    if (seenIds.has(targetId)) continue
-    
-    const target = doc.getElementById(targetId)
-    if (!target) continue
-    
-    const targetTitle = getTitleFromTarget(target)
-    const text = targetTitle || link.textContent?.trim()
-    if (!text) continue
-    
-    // Create observable sentinel element adjacent to anchor
-    const sentinelId = `section-sentinel-${sentinelIndex}`
-    const sentinel = doc.createElement("span")
-    sentinel.id = sentinelId
-    sentinel.setAttribute("data-section-anchor", targetId)
-    sentinel.style.cssText = "display:block;height:4px;margin:0;padding:0;opacity:0;pointer-events:none;"
-    
-    // Insert sentinel after the target anchor
-    if (target.parentElement) {
-      target.parentElement.insertBefore(sentinel, target.nextSibling)
-    }
-    
-    sections.push({ id: sentinelId, level: 1, text })
-    seenIds.add(targetId)
-    sentinelIndex++
-  }
-  
-  return sections
-}
-
-function extractSectionsFromBoldHeadings(doc: Document): FilingSection[] {
-  const sections: FilingSection[] = []
-  const containers = doc.querySelectorAll("p, div")
-  
-  let index = 0
-  for (const container of containers) {
-    const firstChild = container.firstElementChild
-    if (!firstChild || (firstChild.tagName !== "B" && firstChild.tagName !== "STRONG")) {
-      continue
-    }
-    
-    const text = firstChild.textContent?.trim()
-    if (!text || text.length > 200) continue
-    
-    const id = `section-${index}`
-    container.setAttribute("id", id)
-    
-    sections.push({ id, level: 2, text })
-    index++
-  }
-  
-  return sections
-}
-
-export function FilingRenderer({ html, filingId, filingUrl, selection, highlightedElement, onSectionsExtracted, onTextSelection }: FilingRendererProps) {
+export function FilingRenderer({ html, filingId, filingUrl, selection, highlightedElement, onTextSelection }: FilingRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [contentReady, setContentReady] = useState(false)
 
@@ -136,18 +44,13 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, highlight
     }
   }, [highlightedElement, contentReady])
   
-  const { processedHtml, sections } = useMemo(() => {
+  const processedHtml = useMemo(() => {
     if (typeof window === "undefined") {
-      return { processedHtml: html, sections: [] }
+      return html
     }
 
     const parser = new DOMParser()
     const doc = parser.parseFromString(html, "text/html")
-
-    let extractedSections = extractSectionsFromToc(doc)
-    if (extractedSections.length === 0) {
-      extractedSections = extractSectionsFromBoldHeadings(doc)
-    }
 
     // Add CSV export buttons to tables
     const tables = doc.querySelectorAll('table[data-table-index]')
@@ -217,15 +120,8 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, highlight
 
     const bodyContent = doc.body ? doc.body.innerHTML : doc.documentElement.innerHTML
 
-    return {
-      processedHtml: bodyContent,
-      sections: extractedSections,
-    }
+    return bodyContent
   }, [html])
-
-  useEffect(() => {
-    onSectionsExtracted(sections)
-  }, [sections, onSectionsExtracted])
 
   // Event delegation for table action buttons (CSV, XLSX export and share)
   useEffect(() => {

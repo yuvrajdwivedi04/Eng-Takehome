@@ -8,6 +8,7 @@ from app.services.filing_fetcher import FilingFetcher, InvalidFilingUrlError
 from app.services.filing_cache import filing_cache
 from app.utils.sanitize_html import sanitize
 from app.services.csv_generator import extract_table_at_index, generate_csv, generate_xlsx, build_table_link, generate_all_tables_xlsx, generate_all_tables_csv_zip
+from app.services.exhibit_fetcher import ExhibitFetcher
 
 
 router = APIRouter(prefix="/api/filings", tags=["filings"])
@@ -315,3 +316,60 @@ async def download_table_xlsx(filing_id: str, table_index: int):
             status_code=500,
             detail=f"Failed to generate XLSX: {str(e)}"
         )
+
+
+# =============================================================================
+# EXHIBITS ENDPOINT
+# =============================================================================
+
+class ExhibitModel(BaseModel):
+    """A single exhibit file from a SEC filing."""
+    name: str
+    description: str
+    url: str
+
+
+class ExhibitsResponse(BaseModel):
+    """Response containing list of exhibits for a filing."""
+    exhibits: list[ExhibitModel]
+    sourceUrl: str
+
+
+@router.get("/{filing_id}/exhibits", response_model=ExhibitsResponse)
+async def get_exhibits(filing_id: str):
+    """
+    Get list of exhibit files for a SEC filing.
+    
+    Fetches the SEC index.json for the filing and filters for exhibit files
+    (files starting with 'ex' or 'EX').
+    
+    Args:
+        filing_id: The filing identifier (SHA-1 hash of source URL)
+        
+    Returns:
+        List of exhibits with names, descriptions, and URLs
+        
+    Raises:
+        HTTPException: 404 if filing not found in cache
+    """
+    source_url = filing_cache.get_source_url(filing_id)
+    if not source_url:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Filing '{filing_id}' not found. Please load the filing first."
+        )
+    
+    fetcher = ExhibitFetcher()
+    result = await fetcher.fetch_exhibits(source_url)
+    
+    if not result:
+        # Return empty list if we couldn't fetch exhibits (graceful degradation)
+        return ExhibitsResponse(exhibits=[], sourceUrl=source_url)
+    
+    return ExhibitsResponse(
+        exhibits=[
+            ExhibitModel(name=e.name, description=e.description, url=e.url)
+            for e in result.exhibits
+        ],
+        sourceUrl=result.source_url
+    )

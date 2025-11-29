@@ -26,28 +26,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Scrollbar Styling */
+/* Custom Scrollbar Styling - matches background */
 .scrollbar-teal {
   scrollbar-width: thin;
-  scrollbar-color: rgba(63, 199, 158, 0.4) transparent;
+  scrollbar-color: #04181A #04181A;
 }
 
 .scrollbar-teal::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+  background: #04181A;
 }
 
 .scrollbar-teal::-webkit-scrollbar-track {
-  background: transparent;
+  background: #04181A;
 }
 
 .scrollbar-teal::-webkit-scrollbar-thumb {
-  background-color: rgba(63, 199, 158, 0.4);
+  background-color: #04181A;
   border-radius: 0px;
 }
 
 .scrollbar-teal::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(63, 199, 158, 0.6);
+  background-color: #04181A;
+}
+
+/* Subtle scrollbar - matches background */
+.scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: #04181A #04181A;
+}
+
+.scrollbar-subtle::-webkit-scrollbar {
+  width: 6px;
+  background: #04181A;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background: #04181A;
+  border-radius: 0;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb:hover {
+  background: #04181A;
 }
 
 /* Table Export Button Group */

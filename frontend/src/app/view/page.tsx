@@ -8,7 +8,6 @@ import { Header } from "@/components/layout/Header"
 import { ViewerLayout } from "@/components/layout/ViewerLayout"
 import { Sidebar } from "@/components/sidebar/Sidebar"
 import { FilingRenderer } from "@/components/viewer/FilingRenderer"
-import { FilingSection } from "@/components/viewer/types"
 import { ChatPanel } from "@/components/chat/ChatPanel"
 import { ChatMessage } from "@/components/chat/types"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -28,12 +27,10 @@ export default function ViewPage() {
   const url = searchParams.get("source")
   
   const [html, setHtml] = useState<string | null>(null)
-  const [sections, setSections] = useState<FilingSection[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(true)
-  const [activeSection, setActiveSection] = useState<string | null>(null)
   const [filingId, setFilingId] = useState<string | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [urlSelection, setUrlSelection] = useState<Selection | null>(null)
@@ -79,10 +76,6 @@ export default function ViewPage() {
     loadFiling()
   }, [url, searchParams])
 
-  const handleSectionsExtracted = useCallback((extractedSections: FilingSection[]) => {
-    setSections(extractedSections)
-  }, [])
-
   const handleToggleSidebar = () => {
     setIsSidebarOpen((prev) => !prev)
   }
@@ -90,53 +83,6 @@ export default function ViewPage() {
   const handleToggleChat = () => {
     setIsChatOpen((prev) => !prev)
   }
-
-  useEffect(() => {
-    if (sections.length === 0) return
-
-    const scrollContainer = scrollContainerRef.current
-    if (!scrollContainer) return
-
-    const elements = sections
-      .map((section) => ({ id: section.id, el: document.getElementById(section.id) }))
-      .filter((item): item is { id: string; el: HTMLElement } => item.el !== null)
-
-    if (elements.length === 0) return
-
-    let ticking = false
-
-    const handleScroll = () => {
-      if (ticking) return
-      ticking = true
-
-      requestAnimationFrame(() => {
-        const containerTop = scrollContainer.getBoundingClientRect().top + 100
-
-        let currentSection: string | null = null
-        for (const { id, el } of elements) {
-          const rect = el.getBoundingClientRect()
-          if (rect.top <= containerTop) {
-            currentSection = id
-          } else {
-            break
-          }
-        }
-
-        if (currentSection && currentSection !== activeSection) {
-          setActiveSection(currentSection)
-        }
-        
-        ticking = false
-      })
-    }
-
-    handleScroll()
-    scrollContainer.addEventListener("scroll", handleScroll, { passive: true })
-
-    return () => {
-      scrollContainer.removeEventListener("scroll", handleScroll)
-    }
-  }, [sections, activeSection])
 
   if (loading) {
     return (
@@ -179,7 +125,7 @@ export default function ViewPage() {
   if (error) {
     return (
       <ViewerLayout
-        header={<Header isSidebarOpen={false} onToggleSidebar={() => {}} isChatOpen={false} onToggleChat={() => {}} />}
+        header={<Header isSidebarOpen={false} onToggleSidebar={() => {}} />}
         sidebar={null}
         content={
           <div className="flex items-center justify-center h-full">
@@ -197,7 +143,7 @@ export default function ViewPage() {
   if (!html) {
     return (
       <ViewerLayout
-        header={<Header isSidebarOpen={false} onToggleSidebar={() => {}} isChatOpen={false} onToggleChat={() => {}} />}
+        header={<Header isSidebarOpen={false} onToggleSidebar={() => {}} />}
         sidebar={null}
         content={
           <div className="flex items-center justify-center h-full">
@@ -216,19 +162,17 @@ export default function ViewPage() {
           <Header
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={handleToggleSidebar}
-            filingId={filingId}
           />
         }
-        sidebar={<Sidebar sections={sections} isOpen={isSidebarOpen} activeSection={activeSection} />}
+        sidebar={<Sidebar filingId={filingId} sourceUrl={url} isOpen={isSidebarOpen} onClose={handleToggleSidebar} onOpen={handleToggleSidebar} />}
         content={
-          <div className="animate-fade-in">
+          <div key={url} className="animate-slide-up-fade">
             <FilingRenderer 
               html={html} 
               filingId={filingId || ""} 
-              filingUrl={url}
+              filingUrl={url || ""}
               selection={urlSelection || confirmedSelection}
               highlightedElement={highlightedElement}
-              onSectionsExtracted={handleSectionsExtracted}
               onTextSelection={setActiveTextSelection}
             />
             {activeTextSelection && url && (

@@ -68,12 +68,17 @@ const config: Config = {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
+        'slide-up-fade': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         flow: 'flow 15s linear infinite',
         'flow-diagonal': 'flow-diagonal 20s linear infinite',
         'color-cycle': 'color-cycle 8s ease-in-out infinite',
         'fade-in': 'fade-in 0.5s ease-out',
+        'slide-up-fade': 'slide-up-fade 0.4s ease-out',
       },
     },
   },
