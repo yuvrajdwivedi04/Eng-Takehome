@@ -84,6 +84,48 @@ def handle_merged_cells(rows) -> list[list[str]]:
     return [[cell if cell is not None else "" for cell in row] for row in grid]
 
 
+def collapse_empty_columns(headers: list[str], rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
+    """
+    Remove columns that are entirely empty (from merged cell handling).
+    
+    This cleans up the gaps left by colspan handling without risking data loss.
+    Only removes columns where EVERY cell (header + all rows) is empty/whitespace.
+    """
+    if not headers:
+        return headers, rows
+    
+    num_cols = len(headers)
+    
+    # Find columns that have at least one non-empty cell
+    non_empty_cols = []
+    for col_idx in range(num_cols):
+        # Check header
+        has_content = bool(headers[col_idx].strip())
+        
+        # Check all rows if header is empty
+        if not has_content:
+            for row in rows:
+                if col_idx < len(row) and row[col_idx].strip():
+                    has_content = True
+                    break
+        
+        if has_content:
+            non_empty_cols.append(col_idx)
+    
+    # If all columns have content (or none do), return as-is
+    if len(non_empty_cols) == num_cols or len(non_empty_cols) == 0:
+        return headers, rows
+    
+    # Filter to only non-empty columns
+    new_headers = [headers[i] for i in non_empty_cols]
+    new_rows = [
+        [row[i] if i < len(row) else "" for i in non_empty_cols]
+        for row in rows
+    ]
+    
+    return new_headers, new_rows
+
+
 def is_data_table(table_element) -> bool:
     """
     Filter layout tables from data tables using financial heuristics.
@@ -178,6 +220,9 @@ def extract_table_at_index(html: str, index: int) -> TableData | None:
     
     # Remove completely empty rows
     grid = [row for row in grid if any(cell.strip() for cell in row)]
+    
+    # Collapse empty columns left by merged cell handling
+    headers, grid = collapse_empty_columns(headers, grid)
     
     return TableData(headers=headers, rows=grid)
 
