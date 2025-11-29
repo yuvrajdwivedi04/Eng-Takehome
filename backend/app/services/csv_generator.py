@@ -150,33 +150,19 @@ def is_data_table(table_element) -> bool:
     return has_currency or has_formatted_nums or has_percentages or num_count >= 8
 
 
-def extract_table_at_index(html: str, index: int) -> TableData | None:
+def extract_table_from_element(table_element) -> TableData | None:
     """
-    Extract a specific table from HTML by index.
+    Extract TableData from a BeautifulSoup table element.
     
-    Uses BeautifulSoup with fixed colspan/rowspan handling that doesn't
-    duplicate content across merged cells.
+    Uses fixed colspan/rowspan handling that doesn't duplicate content
+    across merged cells.
     
     Args:
-        html: Raw HTML content
-        index: Zero-based index of the table to extract
+        table_element: BeautifulSoup table element
         
     Returns:
-        TableData if table exists at index and is a data table, None otherwise
+        TableData if extraction successful, None otherwise
     """
-    soup = BeautifulSoup(html, "html.parser")
-    tables = soup.find_all("table")
-    
-    if index < 0 or index >= len(tables):
-        return None
-    
-    table_element = tables[index]
-    
-    # Validate it's a data table, not layout
-    if not is_data_table(table_element):
-        logger.warning(f"Table {index} appears to be a layout table, skipping export")
-        return None
-    
     rows = table_element.find_all("tr")
     
     if not rows:
@@ -225,6 +211,36 @@ def extract_table_at_index(html: str, index: int) -> TableData | None:
     headers, grid = collapse_empty_columns(headers, grid)
     
     return TableData(headers=headers, rows=grid)
+
+
+def extract_table_at_index(html: str, index: int) -> TableData | None:
+    """
+    Extract a specific table from HTML by index.
+    
+    Uses BeautifulSoup with fixed colspan/rowspan handling that doesn't
+    duplicate content across merged cells.
+    
+    Args:
+        html: Raw HTML content
+        index: Zero-based index of the table to extract
+        
+    Returns:
+        TableData if table exists at index and is a data table, None otherwise
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    tables = soup.find_all("table")
+    
+    if index < 0 or index >= len(tables):
+        return None
+    
+    table_element = tables[index]
+    
+    # Validate it's a data table, not layout
+    if not is_data_table(table_element):
+        logger.warning(f"Table {index} appears to be a layout table, skipping export")
+        return None
+    
+    return extract_table_from_element(table_element)
 
 
 def generate_csv(table: TableData) -> str:
@@ -313,3 +329,107 @@ def build_table_link(filing_url: str, table_index: int, base_url: str = "http://
     
     params = urlencode({"source": filing_url, "selection": encoded})
     return f"{base_url}/view?{params}"
+
+
+def generate_all_tables_xlsx(html: str, source_url: str = None) -> tuple[bytes, int]:
+    """
+    Generate multi-sheet XLSX with all data tables from filing.
+    
+    Each data table becomes a separate sheet. Layout tables are filtered out.
+    
+    Args:
+        html: Raw HTML content of the filing
+        source_url: Optional URL to include as "View Source" link on first sheet
+        
+    Returns:
+        Tuple of (xlsx_bytes, table_count)
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    tables = soup.find_all("table")
+    
+    wb = Workbook()
+    wb.remove(wb.active)  # Remove default empty sheet
+    
+    table_count = 0
+    for idx, table_elem in enumerate(tables):
+        # Skip layout tables
+        if not is_data_table(table_elem):
+            continue
+        
+        # Extract table data using shared helper
+        table_data = extract_table_from_element(table_elem)
+        if not table_data or (not table_data.headers and not table_data.rows):
+            continue
+        
+        # Create sheet with sanitized name (Excel 31 char limit)
+        sheet_name = f"Table {table_count + 1}"[:31]
+        ws = wb.create_sheet(title=sheet_name)
+        
+        # Write headers with bold formatting
+        for col, header in enumerate(table_data.headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True)
+        
+        # Write data rows
+        for row_idx, row in enumerate(table_data.rows, 2):
+            for col_idx, value in enumerate(row, 1):
+                ws.cell(row=row_idx, column=col_idx, value=value)
+        
+        table_count += 1
+    
+    # Add source link on first sheet if we have tables
+    if table_count > 0 and source_url:
+        ws = wb.worksheets[0]
+        # Find last row with data
+        last_row = len(ws['A']) + 1
+        link_row = last_row + 2  # 2 blank rows after data
+        cell = ws.cell(row=link_row, column=1, value="View Source")
+        cell.hyperlink = source_url
+        cell.font = Font(color="0563C1", underline="single")
+    
+    # Write to bytes buffer
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue(), table_count
+
+
+def generate_all_tables_csv_zip(html: str) -> tuple[bytes, int]:
+    """
+    Generate ZIP file containing CSVs of all data tables.
+    
+    Each data table becomes a separate CSV file in the ZIP.
+    Layout tables are filtered out.
+    
+    Args:
+        html: Raw HTML content of the filing
+        
+    Returns:
+        Tuple of (zip_bytes, table_count)
+    """
+    import zipfile
+    
+    soup = BeautifulSoup(html, "html.parser")
+    tables = soup.find_all("table")
+    
+    buffer = BytesIO()
+    table_count = 0
+    
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for idx, table_elem in enumerate(tables):
+            # Skip layout tables
+            if not is_data_table(table_elem):
+                continue
+            
+            # Extract table data using shared helper
+            table_data = extract_table_from_element(table_elem)
+            if not table_data or (not table_data.headers and not table_data.rows):
+                continue
+            
+            # Generate CSV and add to ZIP
+            csv_content = generate_csv(table_data)
+            zf.writestr(f"table-{table_count + 1}.csv", csv_content)
+            table_count += 1
+    
+    buffer.seek(0)
+    return buffer.getvalue(), table_count

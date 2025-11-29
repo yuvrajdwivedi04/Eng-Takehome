@@ -216,6 +216,7 @@ export default function ViewPage() {
           <Header
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={handleToggleSidebar}
+            filingId={filingId}
           />
         }
         sidebar={<Sidebar sections={sections} isOpen={isSidebarOpen} activeSection={activeSection} />}

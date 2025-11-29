@@ -31,3 +31,11 @@ export function getTableXlsxUrl(filingId: string, tableIndex: number): string {
   return `${API_BASE_URL}/api/filings/${filingId}/tables/${tableIndex}.xlsx`;
 }
 
+export function getAllTablesXlsxUrl(filingId: string): string {
+  return `${API_BASE_URL}/api/filings/${filingId}/tables/all.xlsx`;
+}
+
+export function getAllTablesCsvZipUrl(filingId: string): string {
+  return `${API_BASE_URL}/api/filings/${filingId}/tables/all.zip`;
+}
+
