@@ -12,10 +12,11 @@ interface FilingRendererProps {
   filingUrl: string
   selection?: Selection | null
   highlightedElement?: number | null
-  onTextSelection?: (data: { selection: TextSelection; bounds: DOMRect } | null) => void
+  isDeepLink?: boolean
+  onTextSelection?: (data: { selection: TextSelection; bounds: DOMRect; selectedText: string } | null) => void
 }
 
-export function FilingRenderer({ html, filingId, filingUrl, selection, highlightedElement, onTextSelection }: FilingRendererProps) {
+export function FilingRenderer({ html, filingId, filingUrl, selection, highlightedElement, isDeepLink = false, onTextSelection }: FilingRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [contentReady, setContentReady] = useState(false)
 
@@ -180,9 +181,9 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, highlight
   }, [filingId, filingUrl])
 
   return (
-    <div ref={containerRef} className="w-full max-w-4xl mx-auto px-8 py-6 bg-white text-black rounded-sm shadow-lg my-8 min-h-[calc(100vh-8rem)]">
+    <div ref={containerRef} className="relative w-full max-w-4xl mx-auto px-8 py-6 bg-white text-black rounded-sm shadow-lg my-8 min-h-[calc(100vh-8rem)]">
       {contentReady && selection && selection.type === "text" && (
-        <TextHighlight selection={selection} />
+        <TextHighlight selection={selection} isDeepLink={isDeepLink} />
       )}
       <FilingContent
         html={processedHtml}

@@ -19,6 +19,7 @@ import { MessageSquare } from "lucide-react"
 type SelectionData = {
   selection: TextSelection
   bounds: DOMRect
+  selectedText: string
 }
 
 export default function ViewPage() {
@@ -32,7 +33,16 @@ export default function ViewPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(true)
   const [filingId, setFilingId] = useState<string | null>(null)
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [isInitialLoad, setIsInitialLoad] = useState(true) // Track if this is first page load
+  const [chatMessagesMap, setChatMessagesMap] = useState<Record<string, ChatMessage[]>>({}) // Preserve chat per document
+  
+  // Get chat messages for current document
+  const chatMessages = filingId ? (chatMessagesMap[filingId] || []) : []
+  const setChatMessages = useCallback((messages: ChatMessage[]) => {
+    if (filingId) {
+      setChatMessagesMap(prev => ({ ...prev, [filingId]: messages }))
+    }
+  }, [filingId])
   const [urlSelection, setUrlSelection] = useState<Selection | null>(null)
   const [activeTextSelection, setActiveTextSelection] = useState<SelectionData | null>(null)
   const [confirmedSelection, setConfirmedSelection] = useState<TextSelection | null>(null)
@@ -59,6 +69,13 @@ export default function ViewPage() {
     const loadFiling = async () => {
       try {
         setLoading(true)
+        setError(null) // Clear previous errors when switching documents
+        
+        // Clear selection state when switching documents
+        setActiveTextSelection(null)
+        setConfirmedSelection(null)
+        setHighlightedElement(null)
+        
         const data = await fetchFiling(url)
         setHtml(data.html)
         setFilingId(data.id)
@@ -70,6 +87,7 @@ export default function ViewPage() {
         setError(err instanceof Error ? err.message : "Failed to load filing")
       } finally {
         setLoading(false)
+        setIsInitialLoad(false) // After first load, subsequent loads are document switches
       }
     }
 
@@ -84,7 +102,8 @@ export default function ViewPage() {
     setIsChatOpen((prev) => !prev)
   }
 
-  if (loading) {
+  // Full skeleton only on initial page load (before we have any filingId)
+  if (loading && isInitialLoad) {
     return (
       <ViewerLayout
         header={
@@ -140,7 +159,8 @@ export default function ViewPage() {
     )
   }
 
-  if (!html) {
+  // Only show "no data" when not loading and html is null (fetch completed with no data)
+  if (!loading && !html && !error) {
     return (
       <ViewerLayout
         header={<Header isSidebarOpen={false} onToggleSidebar={() => {}} />}
@@ -166,29 +186,46 @@ export default function ViewPage() {
         }
         sidebar={<Sidebar filingId={filingId} sourceUrl={url} isOpen={isSidebarOpen} onClose={handleToggleSidebar} onOpen={handleToggleSidebar} />}
         content={
-          <div key={url} className="animate-slide-up-fade">
-            <FilingRenderer 
-              html={html} 
-              filingId={filingId || ""} 
-              filingUrl={url || ""}
-              selection={urlSelection || confirmedSelection}
-              highlightedElement={highlightedElement}
-              onTextSelection={setActiveTextSelection}
-            />
-            {activeTextSelection && url && (
-              <SelectionMenu 
-                selection={activeTextSelection.selection}
-                bounds={activeTextSelection.bounds}
-                containerRef={scrollContainerRef}
-                filingUrl={url}
-                onConfirm={(sel) => {
-                  setConfirmedSelection(sel)
-                  setActiveTextSelection(null)
-                }}
-                onDismiss={() => setActiveTextSelection(null)}
+          loading && !isInitialLoad ? (
+            // Document switch loading - only show skeleton in content area
+            <div className="w-full max-w-4xl mx-auto px-8 py-6 bg-white rounded-sm shadow-lg my-8 min-h-[calc(100vh-8rem)]">
+              <div className="space-y-5">
+                <Skeleton className="h-12 w-3/4 bg-gray-200" />
+                <Skeleton className="h-6 w-full bg-gray-200" />
+                <Skeleton className="h-6 w-full bg-gray-200" />
+                <Skeleton className="h-6 w-5/6 bg-gray-200" />
+                <Skeleton className="h-10 w-2/3 bg-gray-200 mt-8" />
+                <Skeleton className="h-6 w-full bg-gray-200" />
+                <Skeleton className="h-6 w-4/5 bg-gray-200" />
+              </div>
+            </div>
+          ) : (
+            <div key={url} className="animate-slide-up-fade">
+              <FilingRenderer 
+                html={html || ""} 
+                filingId={filingId || ""} 
+                filingUrl={url || ""}
+                selection={urlSelection || confirmedSelection}
+                highlightedElement={highlightedElement}
+                isDeepLink={!!urlSelection}
+                onTextSelection={setActiveTextSelection}
               />
-            )}
-          </div>
+              {activeTextSelection && url && (
+                <SelectionMenu 
+                  selection={activeTextSelection.selection}
+                  selectedText={activeTextSelection.selectedText}
+                  bounds={activeTextSelection.bounds}
+                  containerRef={scrollContainerRef}
+                  filingUrl={url}
+                  onConfirm={(sel) => {
+                    setConfirmedSelection(sel)
+                    setActiveTextSelection(null)
+                  }}
+                  onDismiss={() => setActiveTextSelection(null)}
+                />
+              )}
+            </div>
+          )
         }
         chat={filingId && (
           <ChatPanel 

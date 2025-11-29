@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { TextSelection, getShareableUrl } from "@/lib/selection-utils"
-import { Link2 } from "lucide-react"
+import { Link2, Check, Copy } from "lucide-react"
 
 interface SelectionMenuProps {
   selection: TextSelection
+  selectedText: string
   bounds: DOMRect
   containerRef: React.RefObject<HTMLElement>
   filingUrl: string
@@ -13,9 +14,37 @@ interface SelectionMenuProps {
   onDismiss: () => void
 }
 
-export function SelectionMenu({ selection, bounds, containerRef, filingUrl, onConfirm, onDismiss }: SelectionMenuProps) {
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength).trim() + "..."
+}
+
+function truncateUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const path = parsed.pathname + parsed.search
+    if (path.length > 20) {
+      return parsed.host + path.slice(0, 15) + "..."
+    }
+    return parsed.host + path
+  } catch {
+    return url.slice(0, 30) + "..."
+  }
+}
+
+export function SelectionMenu({ 
+  selection, 
+  selectedText,
+  bounds, 
+  containerRef, 
+  filingUrl, 
+  onConfirm, 
+  onDismiss 
+}: SelectionMenuProps) {
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  
+  const shareableUrl = useMemo(() => getShareableUrl(filingUrl, selection), [filingUrl, selection])
 
   // Convert viewport coordinates to container-local coordinates
   const position = useMemo(() => {
@@ -35,6 +64,9 @@ export function SelectionMenu({ selection, bounds, containerRef, filingUrl, onCo
       // If clicking inside menu, do nothing
       if (menuRef.current?.contains(e.target as Node)) return
       
+      // Don't dismiss on triple-click (allows new selection to trigger)
+      if (e.detail === 3) return
+      
       // Click outside = dismiss
       onDismiss()
     }
@@ -50,10 +82,8 @@ export function SelectionMenu({ selection, bounds, containerRef, filingUrl, onCo
     // Confirm selection FIRST - this triggers CSS Highlight
     onConfirm(selection)
     
-    const url = getShareableUrl(filingUrl, selection)
-    
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(shareableUrl)
       setCopied(true)
       setTimeout(() => {
         setCopied(false)
@@ -67,19 +97,43 @@ export function SelectionMenu({ selection, bounds, containerRef, filingUrl, onCo
   return (
     <div
       ref={menuRef}
-      className="absolute z-50 bg-white border border-gray-200 rounded-md shadow-lg"
+      className="absolute z-50 bg-white border border-gray-200 shadow-lg animate-fade-in"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
       }}
     >
-      <button
-        onClick={handleCopyLink}
-        className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors w-full text-left"
-      >
-        <Link2 className="h-4 w-4" />
-        {copied ? "Copied!" : "Link"}
-      </button>
+      <div className="flex items-center gap-3 px-3 py-2">
+        {/* Text preview */}
+        <span className="text-sm text-gray-600 max-w-[180px] truncate">
+          "{truncateText(selectedText, 35)}"
+        </span>
+        
+        {/* Divider */}
+        <div className="w-px h-4 bg-gray-200" />
+        
+        {/* URL preview */}
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <Link2 className="w-3 h-3" />
+          <span className="max-w-[120px] truncate">{truncateUrl(shareableUrl)}</span>
+        </div>
+        
+        {/* Divider */}
+        <div className="w-px h-4 bg-gray-200" />
+        
+        {/* Copy button */}
+        <button
+          onClick={handleCopyLink}
+          className="flex items-center justify-center w-7 h-7 hover:bg-gray-100 transition-colors"
+          aria-label={copied ? "Copied" : "Copy link"}
+        >
+          {copied ? (
+            <Check className="w-4 h-4 text-brand-teal" />
+          ) : (
+            <Copy className="w-4 h-4 text-gray-500" />
+          )}
+        </button>
+      </div>
     </div>
   )
 }

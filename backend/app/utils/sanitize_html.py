@@ -137,5 +137,18 @@ def sanitize(html: str) -> str:
             tag["data-element-index"] = str(element_index)
             element_index += 1
     
+    # PASS 3: Additional semantic elements (captions, blockquotes, definitions, etc.)
+    # Added AFTER existing passes to preserve all existing index assignments
+    additional_tags = ['caption', 'figcaption', 'blockquote', 'dd', 'dt', 'summary']
+    for tag in soup.find_all(additional_tags):
+        # Skip if already indexed by previous passes
+        if tag.has_attr('data-element-index'):
+            continue
+        
+        text_content = tag.get_text(separator=" ", strip=True)
+        if len(text_content) >= 10:  # Lower threshold for these typically shorter elements
+            tag["data-element-index"] = str(element_index)
+            element_index += 1
+    
     return str(soup)
 

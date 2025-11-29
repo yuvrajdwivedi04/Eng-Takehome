@@ -1,11 +1,13 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { TextSelection } from "@/lib/selection-utils"
+import { NavigationToast } from "./NavigationToast"
 
 interface TextHighlightProps {
   selection: TextSelection
   highlightName?: string
+  isDeepLink?: boolean
 }
 
 function getTextNodeAndOffset(element: Element, targetOffset: number): { node: Text; offset: number } | null {
@@ -30,7 +32,9 @@ function getTextNodeAndOffset(element: Element, targetOffset: number): { node: T
   return null
 }
 
-export function TextHighlight({ selection, highlightName = 'shared-selection' }: TextHighlightProps) {
+export function TextHighlight({ selection, highlightName = 'shared-selection', isDeepLink = false }: TextHighlightProps) {
+  const [showToast, setShowToast] = useState(isDeepLink)
+
   useEffect(() => {
     // Check if CSS Highlight API is supported
     if (!('highlights' in CSS)) {
@@ -42,6 +46,21 @@ export function TextHighlight({ selection, highlightName = 'shared-selection' }:
 
     // Scroll element into view for URL deep links
     element.scrollIntoView({ behavior: "smooth", block: "center" })
+
+    // Store timer refs for cleanup
+    let arrivalTimer: NodeJS.Timeout | undefined
+    let removeArrivalTimer: NodeJS.Timeout | undefined
+
+    // Add arrival animation class after scroll completes (approx 500ms for smooth scroll)
+    if (isDeepLink) {
+      arrivalTimer = setTimeout(() => {
+        element.classList.add("highlight-arrival")
+        // Remove class after animation completes
+        removeArrivalTimer = setTimeout(() => {
+          element.classList.remove("highlight-arrival")
+        }, 600)
+      }, 500)
+    }
 
     try {
       const startPos = getTextNodeAndOffset(element, selection.startOffset)
@@ -59,8 +78,13 @@ export function TextHighlight({ selection, highlightName = 'shared-selection' }:
     } catch (error) {
       console.error('Error creating highlight:', error)
     }
-  }, [selection, highlightName])
 
-  return null
+    return () => {
+      if (arrivalTimer) clearTimeout(arrivalTimer)
+      if (removeArrivalTimer) clearTimeout(removeArrivalTimer)
+    }
+  }, [selection, highlightName, isDeepLink])
+
+  return showToast ? <NavigationToast onComplete={() => setShowToast(false)} /> : null
 }
 

@@ -19,15 +19,20 @@ function calculateTextOffset(element: Element, node: Node, offset: number): numb
  * Pure helper function to read text selection from the browser and compute offsets.
  * Returns null if no valid selection exists within the container.
  */
-export function readTextSelection(container: HTMLElement): { selection: TextSelection; bounds: DOMRect } | null {
+export function readTextSelection(container: HTMLElement): { selection: TextSelection; bounds: DOMRect; selectedText: string } | null {
   const sel = window.getSelection()
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) return null
 
   const range = sel.getRangeAt(0)
   if (!container.contains(range.commonAncestorContainer)) return null
 
-  // Find element with data-element-index
-  let element = range.commonAncestorContainer.parentElement
+  // Find element with data-element-index, starting from selection start
+  // This anchors cross-element selections to the starting element
+  const startNode = range.startContainer
+  let element: HTMLElement | null = startNode.nodeType === Node.TEXT_NODE
+    ? startNode.parentElement
+    : startNode as HTMLElement
+  
   while (element && element !== container) {
     if (element.hasAttribute('data-element-index')) break
     element = element.parentElement
@@ -39,9 +44,11 @@ export function readTextSelection(container: HTMLElement): { selection: TextSele
   const startOffset = calculateTextOffset(element, range.startContainer, range.startOffset)
   const endOffset = calculateTextOffset(element, range.endContainer, range.endOffset)
   const bounds = range.getBoundingClientRect()
+  const selectedText = sel.toString()
 
   return {
     selection: { type: "text", elementIndex, startOffset, endOffset },
-    bounds
+    bounds,
+    selectedText
   }
 }

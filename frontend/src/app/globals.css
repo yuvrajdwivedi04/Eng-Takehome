@@ -117,9 +117,9 @@
   user-select: text !important;
 }
 
-/* CSS Highlight API Styling - green highlight for shared selections */
+/* CSS Highlight API Styling - vibrant teal highlight for shared selections */
 ::highlight(shared-selection) {
-  background-color: rgba(134, 239, 172, 0.4);
+  background-color: rgba(63, 199, 158, 0.45);
   color: inherit;
 }
 
@@ -137,6 +137,85 @@
   }
   50% {
     background-color: rgba(63, 199, 158, 0.5);
+  }
+}
+
+/* Arrival pulse animation for deep-linked highlights */
+.highlight-arrival {
+  animation: highlight-arrival-pulse 0.6s ease-out;
+}
+
+@keyframes highlight-arrival-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(63, 199, 158, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(63, 199, 158, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(63, 199, 158, 0);
+  }
+}
+
+/* Toast animations */
+.animate-toast-in {
+  animation: toast-in 0.3s ease-out forwards;
+}
+
+.animate-toast-out {
+  animation: toast-out 0.3s ease-in forwards;
+}
+
+@keyframes toast-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Toast animations from top */
+.animate-toast-in-top {
+  animation: toast-in-top 0.3s ease-out forwards;
+}
+
+.animate-toast-out-top {
+  animation: toast-out-top 0.3s ease-in forwards;
+}
+
+@keyframes toast-in-top {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-out-top {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
   }
 }
 

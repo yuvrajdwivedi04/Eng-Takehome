@@ -6,7 +6,7 @@ import { readTextSelection } from "@/hooks/useTextSelection"
 
 interface FilingContentProps {
   html: string
-  onTextSelection?: (data: { selection: TextSelection; bounds: DOMRect } | null) => void
+  onTextSelection?: (data: { selection: TextSelection; bounds: DOMRect; selectedText: string } | null) => void
   onReady?: () => void
 }
 
@@ -40,9 +40,28 @@ export function FilingContent({ html, onTextSelection, onReady }: FilingContentP
       }, 10)
     }
 
+    // Handle triple-click for paragraph selection (uses same callback)
+    const handleClick = (e: MouseEvent) => {
+      if (e.detail >= 2) {
+        // Double/triple-click detected - stop propagation to prevent menu dismiss
+        // The new selection will replace any existing menu via mouseup handler
+        e.stopPropagation()
+      }
+      if (e.detail === 3) {
+        // Triple-click: browser has already selected the paragraph
+        // Use same flow as mouseup to trigger selection menu
+        setTimeout(() => {
+          const data = readTextSelection(el)
+          onTextSelection(data)
+        }, 10)
+      }
+    }
+
     el.addEventListener("mouseup", handleMouseUp)
+    el.addEventListener("click", handleClick)
     return () => {
       el.removeEventListener("mouseup", handleMouseUp)
+      el.removeEventListener("click", handleClick)
     }
   }, [onTextSelection])
 
