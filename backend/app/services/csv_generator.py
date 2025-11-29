@@ -1,14 +1,13 @@
 """
 Table extraction and export for CSV/XLSX downloads.
 
-Uses pandas read_html() for reliable colspan/rowspan handling.
+Uses BeautifulSoup for reliable colspan/rowspan handling.
 This module is EXPORT-ONLY - does not affect RAG embedding pipeline.
 """
 
 from dataclasses import dataclass
 from io import StringIO, BytesIO
 from bs4 import BeautifulSoup
-import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font
 import csv
@@ -25,6 +24,66 @@ class TableData:
     rows: list[list[str]]
 
 
+def extract_cell_text(cell) -> str:
+    """Extract clean text from table cell, handling nested HTML."""
+    text = cell.get_text(separator=" ", strip=True)
+    # Collapse multiple whitespace
+    text = " ".join(text.split())
+    return text
+
+
+def handle_merged_cells(rows) -> list[list[str]]:
+    """
+    Convert table with colspan/rowspan to regular 2D grid.
+    
+    IMPORTANT: Only the first cell of a merged region gets content.
+    Continuation cells are left empty to avoid duplication.
+    """
+    if not rows:
+        return []
+    
+    # Determine grid dimensions
+    max_cols = 0
+    for row in rows:
+        cols = sum(int(cell.get('colspan', 1)) for cell in row.find_all(['td', 'th']))
+        max_cols = max(max_cols, cols)
+    
+    if max_cols == 0:
+        return []
+    
+    row_count = len(rows)
+    grid = [[None] * max_cols for _ in range(row_count)]
+    
+    # Fill grid
+    for row_idx, row in enumerate(rows):
+        col_idx = 0
+        for cell in row.find_all(['td', 'th']):
+            # Skip already-filled cells (from previous rowspan)
+            while col_idx < max_cols and grid[row_idx][col_idx] is not None:
+                col_idx += 1
+            
+            if col_idx >= max_cols:
+                break
+            
+            colspan = int(cell.get('colspan', 1))
+            rowspan = int(cell.get('rowspan', 1))
+            text = extract_cell_text(cell)
+            
+            # FIX: Only first cell of merged region gets content
+            # Continuation cells stay empty to avoid duplication
+            for r in range(min(rowspan, row_count - row_idx)):
+                for c in range(min(colspan, max_cols - col_idx)):
+                    if r == 0 and c == 0:
+                        grid[row_idx + r][col_idx + c] = text  # First cell gets content
+                    else:
+                        grid[row_idx + r][col_idx + c] = ""    # Others stay empty
+            
+            col_idx += colspan
+    
+    # Replace None with empty string
+    return [[cell if cell is not None else "" for cell in row] for row in grid]
+
+
 def is_data_table(table_element) -> bool:
     """
     Filter layout tables from data tables using financial heuristics.
@@ -36,7 +95,7 @@ def is_data_table(table_element) -> bool:
     cells = table_element.find_all(['td', 'th'])
     text = table_element.get_text(strip=True)
     
-    # Structure requirements - must have some substance
+    # Must have structure
     if len(rows) < 2 or len(cells) < 6 or len(text) < 50:
         return False
     
@@ -51,11 +110,10 @@ def is_data_table(table_element) -> bool:
 
 def extract_table_at_index(html: str, index: int) -> TableData | None:
     """
-    Extract a specific table from HTML using pandas for reliable colspan/rowspan handling.
+    Extract a specific table from HTML by index.
     
-    Uses pandas read_html() which correctly handles merged cells without duplicating
-    content. Preserves original text formatting (currency symbols, percentages, 
-    parentheses for negative numbers).
+    Uses BeautifulSoup with fixed colspan/rowspan handling that doesn't
+    duplicate content across merged cells.
     
     Args:
         html: Raw HTML content
@@ -70,60 +128,58 @@ def extract_table_at_index(html: str, index: int) -> TableData | None:
     if index < 0 or index >= len(tables):
         return None
     
-    target_table = tables[index]
+    table_element = tables[index]
     
     # Validate it's a data table, not layout
-    if not is_data_table(target_table):
+    if not is_data_table(table_element):
         logger.warning(f"Table {index} appears to be a layout table, skipping export")
         return None
     
-    try:
-        # Pass SINGLE table HTML to pandas (avoids nested table confusion)
-        # This ensures our indexing matches the frontend's data-table-index
-        dfs = pd.read_html(
-            StringIO(str(target_table)),
-            thousands=None,         # Preserve "1,234" as text, don't parse
-            keep_default_na=False,  # Don't convert blanks to NaN
-            na_values=[],           # No NA inference at all
-        )
-        
-        if not dfs:
-            logger.warning(f"pandas.read_html returned empty for table {index}")
-            return None
-        
-        df = dfs[0]  # Only one table was passed, so always index 0
-        
-        # Force all values to string to preserve formatting ($, %, parentheses)
-        df = df.astype(str).replace({'nan': '', 'None': '', '<NA>': ''})
-        
-        # Handle MultiIndex columns (common in SEC filings with multi-row headers)
-        if isinstance(df.columns, pd.MultiIndex):
-            new_cols = []
-            for i, col in enumerate(df.columns):
-                # Filter out empty/nan/unnamed parts, dedupe while preserving order
-                parts = [str(c) for c in col if c and str(c).lower() not in ('', 'nan', 'unnamed')]
-                unique_parts = list(dict.fromkeys(parts))  # Dedupe, keep order
-                new_cols.append(' '.join(unique_parts) if unique_parts else f"Column_{i+1}")
-            df.columns = new_cols
-        else:
-            # Clean regular column names
-            df.columns = [
-                str(c).strip() if str(c).lower() not in ('unnamed', 'nan', '') else f"Column_{i+1}"
-                for i, c in enumerate(df.columns)
-            ]
-        
-        # Convert to our format
-        headers = [str(h).strip() for h in df.columns.tolist()]
-        rows = [[str(cell).strip() for cell in row] for row in df.values.tolist()]
-        
-        # Remove completely empty rows
-        rows = [r for r in rows if any(cell for cell in r)]
-        
-        return TableData(headers=headers, rows=rows)
-        
-    except Exception as e:
-        logger.error(f"Table extraction failed for index {index}: {e}")
+    rows = table_element.find_all("tr")
+    
+    if not rows:
         return None
+    
+    # Detect headers (first row with <th> OR first row if no <th>)
+    header_row_idx = 0
+    headers = []
+    
+    for idx, row in enumerate(rows):
+        ths = row.find_all("th")
+        if ths:
+            header_row_idx = idx
+            headers = [extract_cell_text(th) for th in ths]
+            break
+    
+    # If no <th> found, use first row as headers
+    if not headers and rows:
+        first_row_cells = rows[0].find_all(['td', 'th'])
+        if first_row_cells:
+            headers = [extract_cell_text(cell) for cell in first_row_cells]
+            header_row_idx = 0
+        else:
+            # No headers at all, generate generic ones
+            first_data_cells = rows[1].find_all(['td', 'th']) if len(rows) > 1 else []
+            col_count = len(first_data_cells) if first_data_cells else 1
+            headers = [f"Column {i+1}" for i in range(col_count)]
+    
+    # Extract data rows (all rows after header)
+    data_rows = rows[header_row_idx + 1:] if len(rows) > header_row_idx + 1 else []
+    
+    if not data_rows:
+        # Table with headers only
+        return TableData(headers=headers, rows=[])
+    
+    # Handle merged cells to create regular grid (with fix for duplication)
+    grid = handle_merged_cells(data_rows)
+    
+    if not grid:
+        return TableData(headers=headers, rows=[])
+    
+    # Remove completely empty rows
+    grid = [row for row in grid if any(cell.strip() for cell in row)]
+    
+    return TableData(headers=headers, rows=grid)
 
 
 def generate_csv(table: TableData) -> str:
