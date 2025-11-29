@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { FrameGrid } from "@/components/ui/FrameGrid"
@@ -38,12 +39,24 @@ export default function Home() {
   return (
     <>
       <FrameGrid />
+      
+      {/* Logo - positioned to the right of the left vertical line, centered vertically in the header space */}
+      <div className="fixed top-8 left-12 md:left-40 z-50 -translate-y-1/2">
+        <Image 
+          src="/fonts/logo.png" 
+          alt="EndSec" 
+          width={180} 
+          height={60} 
+          className="h-12 w-auto"
+        />
+      </div>
+      
       <div className="min-h-screen flex flex-col items-center pt-[25vh] p-4 bg-dark">
         <div className="w-full max-w-3xl space-y-12">
           <div className="text-center space-y-4">
-            <h1 className="text-7xl md:text-8xl font-title font-normal tracking-tight text-white">Endex</h1>
+            <h1 className="text-7xl md:text-8xl font-title font-normal tracking-tight text-white">EndSec</h1>
             <p className="text-lg text-gray-400">
-              Paste any SEC filing URL to begin
+            Your research copilot for SEC filings
             </p>
           </div>
           

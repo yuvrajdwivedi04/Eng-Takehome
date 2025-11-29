@@ -2,6 +2,9 @@ import tiktoken
 from bs4 import BeautifulSoup
 import logging
 
+from app.utils.sanitize_html import sanitize
+from app.services.rag.table_formatter import format_table_for_llm
+
 logger = logging.getLogger(__name__)
 
 
@@ -83,7 +86,7 @@ def format_as_markdown(headers: list[str], rows: list[list[str]]) -> str:
     return "\n".join([header_row, separator] + data_rows)
 
 
-def split_large_table(headers: list[str], rows: list[list[str]], max_tokens: int = 1200) -> list[str]:
+def split_large_table(headers: list[str], rows: list[list[str]], max_tokens: int = 4000) -> list[str]:
     """Split large table into multiple markdown chunks with headers preserved."""
     header_md = format_as_markdown(headers, [])
     header_tokens = count_tokens(header_md) + 50  # +50 for separator and spacing
@@ -167,53 +170,73 @@ def table_to_markdown(table_element) -> str | list[str]:
     # Format as markdown
     markdown = format_as_markdown(headers, grid)
     
-    # Check if table is too large
+    # Check if table is too large (4000 tokens keeps most financial tables intact)
     token_count = count_tokens(markdown)
-    if token_count > 1200:
+    if token_count > 4000:
         logger.debug(f"Large table detected ({token_count} tokens), splitting by rows")
-        return split_large_table(headers, grid, max_tokens=1200)
+        return split_large_table(headers, grid, max_tokens=4000)
     
     return markdown
 
 
 def extract_tables(soup: BeautifulSoup) -> list[dict]:
-    """Extract all tables and convert to markdown with error handling."""
+    """Extract all tables and convert to LLM-optimized format with error handling."""
     tables = []
     table_elements = soup.find_all("table")
     
+    logger.info(f"[DEBUG] Found {len(table_elements)} table elements in HTML")
+    
     for i, table_elem in enumerate(table_elements):
         try:
-            markdown = table_to_markdown(table_elem)
+            # DEBUG: Check if this table contains "comprehensive income"
+            table_text = table_elem.get_text(separator=" ", strip=True).lower()
+            has_comp_income = "comprehensive income" in table_text
             
-            if markdown:  # Skip empty tables
-                # Handle both single string and list (for split tables)
-                if isinstance(markdown, list):
-                    # Large table was split
-                    for idx, md_chunk in enumerate(markdown):
-                        tables.append({
-                            "markdown": md_chunk,
-                            "index": i,
-                            "sub_index": idx,
-                            "is_split": True
-                        })
-                else:
-                    tables.append({
-                        "markdown": markdown,
-                        "index": i,
-                        "is_split": False
-                    })
+            # Use new LLM-optimized formatter (handles both financial and general tables)
+            formatted = format_table_for_llm(table_elem)
+            
+            if formatted:  # Skip empty tables
+                tables.append({
+                    "markdown": formatted,  # Key name kept for compatibility
+                    "index": i,
+                    "is_split": False
+                })
+                if has_comp_income:
+                    # Log a preview of how the table was formatted
+                    preview = formatted[:300].replace('\n', ' ')
+                    logger.info(f"[DEBUG] Table {i} contains 'comprehensive income' - formatted ({len(formatted)} chars): {preview}...")
         except Exception as e:
             logger.warning(f"Failed to convert table {i}: {str(e)}")
             # Continue with next table - don't crash entire process
     
-    logger.info(f"Extracted {len(tables)} table chunks from {len(table_elements)} tables")
+    logger.info(f"[DEBUG] Extracted {len(tables)} table chunks from {len(table_elements)} tables")
     return tables
 
 
 def chunk_filing(html: str) -> list[dict]:
     """
     Phase 3B: Extract tables, convert to markdown, chunk with structure preserved.
+    Captures element indices from data-element-index attributes for source linking.
     """
+    logger.info(f"[DEBUG] HTML length: {len(html)} chars")
+    
+    # Sanitize on-the-fly to get element indices (sanitized HTML has data-element-index)
+    sanitized_html = sanitize(html)
+    sanitized_soup = BeautifulSoup(sanitized_html, "html.parser")
+    
+    # Build element_text_map from SANITIZED html (has data-element-index attrs)
+    element_text_map = []
+    for tag in sanitized_soup.find_all(attrs={"data-element-index": True}):
+        text_content = tag.get_text(separator=" ", strip=True)
+        if text_content:
+            element_text_map.append({
+                "index": int(tag["data-element-index"]),
+                "text": text_content[:200]  # First 200 chars for matching
+            })
+    
+    logger.info(f"[DEBUG] Found {len(element_text_map)} elements with data-element-index")
+    
+    # Continue with RAW html for chunking (embeddings should be based on raw content)
     soup = BeautifulSoup(html, "html.parser")
     
     # Extract and convert tables to markdown
@@ -241,22 +264,66 @@ def chunk_filing(html: str) -> list[dict]:
         combined_markdown = "\n\n".join(markdown_parts)
         text = text.replace(placeholder, f"\n\n{combined_markdown}\n\n", 1)
     
+    # DEBUG: Check if comprehensive income is in the final text
+    if "comprehensive income" in text.lower():
+        # Find the context around it
+        idx = text.lower().find("comprehensive income")
+        context_start = max(0, idx - 100)
+        context_end = min(len(text), idx + 200)
+        logger.info(f"[DEBUG] 'comprehensive income' found in final text at position {idx}")
+        logger.info(f"[DEBUG] Context: ...{text[context_start:context_end].replace(chr(10), ' ')}...")
+    else:
+        logger.warning(f"[DEBUG] 'comprehensive income' NOT FOUND in final text!")
+    
+    logger.info(f"[DEBUG] Final text length: {len(text)} chars")
+    
     # Chunk the combined text (with markdown tables)
     chunks = chunk_text(text, max_tokens=1000, overlap=200)
     
-    # Return chunks with metadata
-    return [
-        {
+    logger.info(f"[DEBUG] Created {len(chunks)} chunks")
+    
+    # Return chunks with metadata including element_index
+    result = []
+    for i, chunk in enumerate(chunks):
+        # Find the first matching element index for this chunk
+        element_index = find_element_index_for_chunk(chunk, element_text_map)
+        
+        # DEBUG: Check which chunks contain "comprehensive income"
+        if "comprehensive income" in chunk.lower():
+            logger.info(f"[DEBUG] Chunk {i} contains 'comprehensive income' (tokens: {count_tokens(chunk)})")
+        
+        # Detect table content (both markdown "|" and new row-by-row "•" format)
+        has_table = "| " in chunk or "  •" in chunk
+        
+        result.append({
             "id": f"chunk-{i}",
             "text": chunk,
             "metadata": {
                 "position": i,
                 "token_count": count_tokens(chunk),
-                "has_table": "| " in chunk  # Markdown table marker
+                "has_table": has_table,
+                "element_index": element_index
             }
-        }
-        for i, chunk in enumerate(chunks)
-    ]
+        })
+    
+    return result
+
+
+def find_element_index_for_chunk(chunk_text: str, element_text_map: list[dict]) -> int:
+    """
+    Find the primary element index for a chunk by matching text content.
+    Returns the first matching element index, or 0 if no match found.
+    """
+    chunk_lower = chunk_text.lower()
+    
+    for elem in element_text_map:
+        # Check if element text appears in chunk (first 50 chars for efficiency)
+        elem_sample = elem["text"][:50].lower()
+        if elem_sample and elem_sample in chunk_lower:
+            return elem["index"]
+    
+    # Fallback: return 0 (beginning of document)
+    return 0
 
 
 def chunk_text(text: str, max_tokens: int = 1000, overlap: int = 200) -> list[str]:

@@ -9,10 +9,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ sections, isOpen, activeSection }: SidebarProps) {
-  if (!isOpen) {
-    return null
-  }
-
   const handleSectionClick = (id: string) => {
     const element = document.getElementById(id)
     if (element) {
@@ -25,41 +21,40 @@ export function Sidebar({ sections, isOpen, activeSection }: SidebarProps) {
     return { paddingLeft: `${baseIndent + (level - 1) * 0.75}rem` }
   }
 
-  if (sections.length === 0) {
-    return (
-      <aside className="w-64 border-r bg-muted/10 h-full">
+  return (
+    <aside 
+      className={cn(
+        "border-r border-white/10 bg-dark h-full overflow-hidden transition-all duration-300 ease-in-out relative z-20 shadow-[4px_0_24px_rgba(0,0,0,0.25)]",
+        isOpen ? "w-64" : "w-0 border-r-0"
+      )}
+    >
+      <div className="w-64 h-full">
         <ScrollArea className="h-full">
           <div className="p-4">
-            <h2 className="text-sm font-semibold mb-4 text-muted-foreground">Contents</h2>
-            <p className="text-sm text-muted-foreground">No sections found in this filing.</p>
+            <h2 className="text-sm font-semibold mb-4 text-gray-400">Contents</h2>
+            {sections.length === 0 ? (
+              <p className="text-sm text-gray-500">No sections found in this filing.</p>
+            ) : (
+              <nav className="space-y-1">
+                {sections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => handleSectionClick(section.id)}
+                    style={getIndentStyle(section.level)}
+                    className={cn(
+                      "w-full text-left text-sm py-1.5 rounded-none transition-all border-l-2 border-transparent",
+                      "text-gray-400 hover:bg-white/5 hover:text-gray-200",
+                      section.id === activeSection && "text-brand-teal bg-brand-teal/5 border-brand-teal font-medium"
+                    )}
+                  >
+                    {section.text}
+                  </button>
+                ))}
+              </nav>
+            )}
           </div>
         </ScrollArea>
-      </aside>
-    )
-  }
-
-  return (
-    <aside className="w-64 border-r bg-muted/10 h-full">
-      <ScrollArea className="h-full">
-        <div className="p-4">
-          <h2 className="text-sm font-semibold mb-4 text-muted-foreground">Contents</h2>
-          <nav className="space-y-1">
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => handleSectionClick(section.id)}
-                style={getIndentStyle(section.level)}
-                className={cn(
-                  "w-full text-left text-sm py-1.5 rounded-md hover:bg-accent transition-all border-l-2 border-transparent",
-                  section.id === activeSection && "text-primary bg-primary/10 border-primary"
-                )}
-              >
-                {section.text}
-              </button>
-            ))}
-          </nav>
-        </div>
-      </ScrollArea>
+      </div>
     </aside>
   )
 }

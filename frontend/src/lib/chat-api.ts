@@ -10,9 +10,17 @@ export interface ChatRequest {
   messages: ChatMessage[]
 }
 
+export interface Source {
+  id: string
+  preview: string
+  elementIndex: number
+  score: number
+}
+
 export interface ChatResponse {
   message: string
   timestamp: string
+  sources: Source[]
 }
 
 export async function sendChatMessage(

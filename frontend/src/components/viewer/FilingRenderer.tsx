@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FilingSection } from "./types"
-import { getTableCsvUrl } from "@/lib/api"
+import { getTableCsvUrl, getTableXlsxUrl } from "@/lib/api"
 import { Selection, getShareableUrl, TextSelection } from "@/lib/selection-utils"
 import { TextHighlight } from "./TextHighlight"
 import { FilingContent } from "./FilingContent"
@@ -12,6 +12,7 @@ interface FilingRendererProps {
   filingId: string
   filingUrl: string
   selection?: Selection | null
+  highlightedElement?: number | null
   onSectionsExtracted: (sections: FilingSection[]) => void
   onTextSelection?: (data: { selection: TextSelection; bounds: DOMRect } | null) => void
 }
@@ -106,9 +107,34 @@ function extractSectionsFromBoldHeadings(doc: Document): FilingSection[] {
   return sections
 }
 
-export function FilingRenderer({ html, filingId, filingUrl, selection, onSectionsExtracted, onTextSelection }: FilingRendererProps) {
+export function FilingRenderer({ html, filingId, filingUrl, selection, highlightedElement, onSectionsExtracted, onTextSelection }: FilingRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [contentReady, setContentReady] = useState(false)
+
+  // Handle scroll and highlight when a source is clicked from chat
+  useEffect(() => {
+    if (highlightedElement === null || highlightedElement === undefined) return
+    if (!contentReady) return
+
+    const element = document.querySelector(`[data-element-index="${highlightedElement}"]`)
+    if (!element) return
+
+    // Scroll element into view
+    element.scrollIntoView({ behavior: "smooth", block: "center" })
+
+    // Apply temporary highlight using CSS class
+    element.classList.add("source-highlight")
+    
+    // Remove highlight after animation
+    const timer = setTimeout(() => {
+      element.classList.remove("source-highlight")
+    }, 3000)
+
+    return () => {
+      clearTimeout(timer)
+      element.classList.remove("source-highlight")
+    }
+  }, [highlightedElement, contentReady])
   
   const { processedHtml, sections } = useMemo(() => {
     if (typeof window === "undefined") {
@@ -155,18 +181,26 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, onSection
       const csvButton = doc.createElement('button')
       csvButton.className = 'table-export-btn'
       csvButton.setAttribute('data-export-table', index)
-      csvButton.textContent = '📥 Export CSV'
-      csvButton.style.cssText = 'right: 100px;'  // Position to make room for share button
+      csvButton.textContent = 'CSV'
+      csvButton.style.cssText = 'right: 140px;'
+      
+      // Create Excel export button (primary action)
+      const xlsxButton = doc.createElement('button')
+      xlsxButton.className = 'table-export-btn table-export-btn-primary'
+      xlsxButton.setAttribute('data-export-xlsx', index)
+      xlsxButton.textContent = 'Excel'
+      xlsxButton.style.cssText = 'right: 70px;'
       
       // Create share button
       const shareButton = doc.createElement('button')
       shareButton.className = 'table-export-btn'
       shareButton.setAttribute('data-share-table', index)
-      shareButton.textContent = '🔗 Share'
+      shareButton.textContent = 'Share'
       
-      // Wrap: parent → wrapper → [csvButton, shareButton, table]
+      // Wrap: parent → wrapper → [csvButton, xlsxButton, shareButton, table]
       table.parentNode?.insertBefore(wrapper, table)
       wrapper.appendChild(csvButton)
+      wrapper.appendChild(xlsxButton)
       wrapper.appendChild(shareButton)
       wrapper.appendChild(table)
     })
@@ -183,7 +217,7 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, onSection
     onSectionsExtracted(sections)
   }, [sections, onSectionsExtracted])
 
-  // Event delegation for table action buttons (CSV export and share)
+  // Event delegation for table action buttons (CSV, XLSX export and share)
   useEffect(() => {
     const handleClick = async (e: MouseEvent) => {
       const target = e.target as HTMLElement
@@ -194,6 +228,16 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, onSection
         const tableIndex = csvButton.getAttribute('data-export-table')
         if (tableIndex !== null) {
           window.location.href = getTableCsvUrl(filingId, parseInt(tableIndex))
+        }
+        return
+      }
+      
+      // Handle XLSX/Excel export
+      const xlsxButton = target.closest('[data-export-xlsx]')
+      if (xlsxButton) {
+        const tableIndex = xlsxButton.getAttribute('data-export-xlsx')
+        if (tableIndex !== null) {
+          window.location.href = getTableXlsxUrl(filingId, parseInt(tableIndex))
         }
         return
       }
@@ -230,7 +274,7 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, onSection
   }, [filingId, filingUrl])
 
   return (
-    <div ref={containerRef} className="w-full max-w-4xl mx-auto px-8 py-6">
+    <div ref={containerRef} className="w-full max-w-4xl mx-auto px-8 py-6 bg-white text-black rounded-sm shadow-lg my-8 min-h-[calc(100vh-8rem)]">
       {contentReady && selection && selection.type === "text" && (
         <TextHighlight selection={selection} />
       )}

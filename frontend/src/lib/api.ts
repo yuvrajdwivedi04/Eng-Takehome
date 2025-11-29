@@ -27,3 +27,7 @@ export function getTableCsvUrl(filingId: string, tableIndex: number): string {
   return `${API_BASE_URL}/api/filings/${filingId}/tables/${tableIndex}.csv`;
 }
 
+export function getTableXlsxUrl(filingId: string, tableIndex: number): string {
+  return `${API_BASE_URL}/api/filings/${filingId}/tables/${tableIndex}.xlsx`;
+}
+

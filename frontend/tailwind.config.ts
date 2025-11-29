@@ -9,7 +9,12 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+        sans: ['Aeonik', 'system-ui', 'sans-serif'],
         title: ['Season Serif', 'serif'],
+      },
+      fontWeight: {
+        light: '300',
+        normal: '400',
       },
       colors: {
         dark: "#04181A",
@@ -58,12 +63,17 @@ const config: Config = {
           '50%': { backgroundColor: '#1a6b6f' },
           '75%': { backgroundColor: '#3fc79e' },
           '90%': { backgroundColor: '#7fffd4' },
-        }
+        },
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
       },
       animation: {
         flow: 'flow 15s linear infinite',
         'flow-diagonal': 'flow-diagonal 20s linear infinite',
         'color-cycle': 'color-cycle 8s ease-in-out infinite',
+        'fade-in': 'fade-in 0.5s ease-out',
       },
     },
   },

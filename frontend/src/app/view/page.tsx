@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { parseSelectionFromUrl, Selection, TextSelection } from "@/lib/selection-utils"
 import { SelectionMenu } from "@/components/viewer/SelectionMenu"
+import { MessageSquare } from "lucide-react"
 
 type SelectionData = {
   selection: TextSelection
@@ -38,7 +39,17 @@ export default function ViewPage() {
   const [urlSelection, setUrlSelection] = useState<Selection | null>(null)
   const [activeTextSelection, setActiveTextSelection] = useState<SelectionData | null>(null)
   const [confirmedSelection, setConfirmedSelection] = useState<TextSelection | null>(null)
+  const [highlightedElement, setHighlightedElement] = useState<number | null>(null)
   const scrollContainerRef = useRef<HTMLElement>(null)
+
+  // Handler for when a source is clicked in the chat panel
+  const handleSourceClick = useCallback((elementIndex: number) => {
+    setHighlightedElement(elementIndex)
+    // Auto-clear highlight after 5 seconds
+    setTimeout(() => {
+      setHighlightedElement(null)
+    }, 5000)
+  }, [])
 
 
   useEffect(() => {
@@ -131,33 +142,33 @@ export default function ViewPage() {
     return (
       <ViewerLayout
         header={
-          <div className="flex items-center h-14 px-4 border-b">
-            <Skeleton className="h-10 w-10 mr-2" />
-            <Skeleton className="h-6 w-24" />
+          <div className="flex items-center h-14 px-4 border-b border-white/10 bg-dark">
+            <Skeleton className="h-10 w-10 mr-3" />
+            <Skeleton className="h-7 w-28" />
           </div>
         }
         sidebar={
-          <aside className="w-64 border-r bg-muted/10">
-            <div className="p-4 space-y-2">
-              <Skeleton className="h-4 w-20 mb-4" />
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-3/4" />
+          <aside className="w-64 border-r border-white/10 bg-dark h-full">
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-5 w-20 mb-4" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-3/4" />
             </div>
           </aside>
         }
         content={
           <div className="w-full max-w-4xl mx-auto px-8 py-6">
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-8 w-2/3 mt-8" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-4/5" />
+            <div className="space-y-5">
+              <Skeleton className="h-12 w-3/4" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-5/6" />
+              <Skeleton className="h-10 w-2/3 mt-8" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-4/5" />
             </div>
           </div>
         }
@@ -205,18 +216,17 @@ export default function ViewPage() {
           <Header
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={handleToggleSidebar}
-            isChatOpen={isChatOpen}
-            onToggleChat={handleToggleChat}
           />
         }
         sidebar={<Sidebar sections={sections} isOpen={isSidebarOpen} activeSection={activeSection} />}
         content={
-          <>
+          <div className="animate-fade-in">
             <FilingRenderer 
               html={html} 
               filingId={filingId || ""} 
               filingUrl={url}
               selection={urlSelection || confirmedSelection}
+              highlightedElement={highlightedElement}
               onSectionsExtracted={handleSectionsExtracted}
               onTextSelection={setActiveTextSelection}
             />
@@ -233,17 +243,31 @@ export default function ViewPage() {
                 onDismiss={() => setActiveTextSelection(null)}
               />
             )}
-          </>
+          </div>
         }
-        chat={isChatOpen && filingId && (
+        chat={filingId && (
           <ChatPanel 
-            filingId={filingId} 
+            filingId={filingId}
+            filingUrl={url || ""}
             isOpen={isChatOpen}
             messages={chatMessages}
             onMessagesChange={setChatMessages}
+            onClose={handleToggleChat}
+            onSourceClick={handleSourceClick}
           />
         )}
       />
+      
+      {/* Floating chat toggle - appears when chat is closed */}
+      {!isChatOpen && (
+        <Button
+          onClick={handleToggleChat}
+          className="fixed right-0 top-1/2 -translate-y-1/2 h-16 w-14 rounded-none rounded-l-md bg-dark border border-white/10 border-r-0 text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+          aria-label="Open chat"
+        >
+          <MessageSquare className="h-8 w-8" />
+        </Button>
+      )}
     </>
   )
 }

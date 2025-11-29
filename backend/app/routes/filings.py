@@ -7,7 +7,7 @@ from io import StringIO
 from app.services.filing_fetcher import FilingFetcher, InvalidFilingUrlError
 from app.services.filing_cache import filing_cache
 from app.utils.sanitize_html import sanitize
-from app.services.csv_generator import extract_table_at_index, generate_csv
+from app.services.csv_generator import extract_table_at_index, generate_csv, generate_xlsx, build_table_link
 
 
 router = APIRouter(prefix="/api/filings", tags=["filings"])
@@ -111,7 +111,7 @@ async def download_table_csv(filing_id: str, table_index: int):
         if table_data is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"Table index {table_index} not found in this filing."
+                detail=f"Table {table_index} not found or is a layout table."
             )
         
         # Generate CSV
@@ -132,5 +132,76 @@ async def download_table_csv(filing_id: str, table_index: int):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate CSV: {str(e)}"
+        )
+
+
+@router.get("/{filing_id}/tables/{table_index}.xlsx")
+async def download_table_xlsx(filing_id: str, table_index: int):
+    """
+    Download a specific table from a filing as XLSX (Excel).
+    
+    Features:
+    - Bold header row
+    - Source link at bottom for traceability
+    
+    Args:
+        filing_id: The filing identifier (SHA-1 hash of source URL)
+        table_index: Zero-based index of the table to export
+        
+    Returns:
+        XLSX file as streaming response
+        
+    Raises:
+        HTTPException: 404 if filing not found or table index out of range,
+                      400 if table index is invalid
+    """
+    # Validate table index
+    if table_index < 0:
+        raise HTTPException(status_code=400, detail="Table index must be non-negative")
+    
+    # Get raw HTML from cache
+    raw_html = filing_cache.get_html(filing_id)
+    if not raw_html:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Filing '{filing_id}' not found. Please load the filing first."
+        )
+    
+    # Get source URL for the deep link
+    source_url = filing_cache.get_source_url(filing_id)
+    
+    # Extract table on-demand
+    try:
+        table_data = extract_table_at_index(raw_html, table_index)
+        
+        if table_data is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Table {table_index} not found or is a layout table."
+            )
+        
+        # Build deep link to table in viewer
+        table_link = None
+        if source_url:
+            table_link = build_table_link(source_url, table_index)
+        
+        # Generate XLSX
+        xlsx_content = generate_xlsx(table_data, source_url=table_link)
+        
+        # Return as streaming response
+        return StreamingResponse(
+            iter([xlsx_content]),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f'attachment; filename="table-{table_index}.xlsx"'
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate XLSX: {str(e)}"
         )
 

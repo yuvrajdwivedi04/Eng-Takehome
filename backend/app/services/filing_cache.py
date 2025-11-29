@@ -29,6 +29,11 @@ class FilingCache:
             self._cache.move_to_end(filing_id)
         return entry["html"] if entry else None
     
+    def get_source_url(self, filing_id: str) -> str | None:
+        """Retrieve the original SEC filing URL for a cached filing."""
+        entry = self._cache.get(filing_id)
+        return entry.get("source_url") if entry else None
+    
     def has_filing(self, filing_id: str) -> bool:
         return filing_id in self._cache
     
