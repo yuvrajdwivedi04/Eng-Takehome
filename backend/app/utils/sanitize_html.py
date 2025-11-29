@@ -108,5 +108,34 @@ def sanitize(html: str) -> str:
     # Unhide known SEC filing content containers
     _unhide_sec_containers(soup)
     
+    # Add data-table-index attributes for CSV export feature
+    for index, table in enumerate(soup.find_all("table")):
+        table["data-table-index"] = str(index)
+    
+    # Add data-element-index attributes for deep linking feature
+    element_index = 0
+    
+    # Semantic elements to always index (headings, emphasized text)
+    semantic_tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b']
+    
+    # Index semantic elements first (headings, bold text, etc.)
+    for tag in soup.find_all(semantic_tags):
+        text_content = tag.get_text(separator=" ", strip=True)
+        if len(text_content) > 0:  # Any non-empty semantic element
+            tag["data-element-index"] = str(element_index)
+            element_index += 1
+    
+    # Then index substantial text blocks (paragraphs, divs, list items, cells)
+    text_block_tags = ['p', 'div', 'li', 'td', 'th']
+    for tag in soup.find_all(text_block_tags):
+        # Skip if already indexed
+        if tag.has_attr('data-element-index'):
+            continue
+        
+        text_content = tag.get_text(separator=" ", strip=True)
+        if len(text_content) >= 20:  # Only index substantial text blocks
+            tag["data-element-index"] = str(element_index)
+            element_index += 1
+    
     return str(soup)
 

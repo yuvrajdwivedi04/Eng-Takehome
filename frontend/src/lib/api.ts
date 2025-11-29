@@ -23,3 +23,7 @@ export async function fetchFiling(url: string): Promise<FilingResponse> {
   return response.json();
 }
 
+export function getTableCsvUrl(filingId: string, tableIndex: number): string {
+  return `${API_BASE_URL}/api/filings/${filingId}/tables/${tableIndex}.csv`;
+}
+

@@ -1,6 +1,48 @@
+@font-face {
+  font-family: 'Season Serif';
+  src: url('/fonts/SeasonSerif-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* CSV Export Button Styling */
+.table-export-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  z-index: 10;
+  transition: background-color 0.2s;
+}
+
+.table-export-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+/* Ensure filing content behaves like normal selectable text,
+   even if SEC HTML includes inline user-select:none styles */
+.filing-content,
+.filing-content * {
+  user-select: text !important;
+}
+
+/* CSS Highlight API Styling - green highlight for shared selections */
+::highlight(shared-selection) {
+  background-color: rgba(134, 239, 172, 0.4);
+  color: inherit;
+}
 
 @layer base {
   :root {

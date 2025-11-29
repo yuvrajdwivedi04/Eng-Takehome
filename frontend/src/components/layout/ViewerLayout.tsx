@@ -16,7 +16,7 @@ export const ViewerLayout = forwardRef<HTMLElement, ViewerLayoutProps>(
           <div className="h-full">
             {sidebar}
           </div>
-          <main ref={ref} className="flex-1 overflow-y-auto">
+          <main ref={ref} className="flex-1 overflow-y-auto relative">
             {content}
           </main>
           {chat && <div className="h-full">{chat}</div>}

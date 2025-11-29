@@ -8,7 +8,14 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        title: ['Season Serif', 'serif'],
+      },
       colors: {
+        dark: "#04181A",
+        "input-bg": "#11282A",
+        "brand-teal": "#3fc79e",
+        frame: "rgba(255, 255, 255, 0.1)",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -35,6 +42,28 @@ const config: Config = {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        flow: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        'flow-diagonal': {
+          '0%': { transform: 'translate(-50%, -50%) rotate(45deg) translateY(-50%)' },
+          '100%': { transform: 'translate(-50%, -50%) rotate(45deg) translateY(50%)' },
+        },
+        'color-cycle': {
+          '0%, 100%': { backgroundColor: '#04181A' },
+          '25%': { backgroundColor: '#0a3a3d' },
+          '50%': { backgroundColor: '#1a6b6f' },
+          '75%': { backgroundColor: '#3fc79e' },
+          '90%': { backgroundColor: '#7fffd4' },
+        }
+      },
+      animation: {
+        flow: 'flow 15s linear infinite',
+        'flow-diagonal': 'flow-diagonal 20s linear infinite',
+        'color-cycle': 'color-cycle 8s ease-in-out infinite',
       },
     },
   },

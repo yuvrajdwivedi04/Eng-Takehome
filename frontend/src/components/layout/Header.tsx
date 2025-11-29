@@ -22,7 +22,7 @@ export function Header({ onToggleSidebar, isChatOpen, onToggleChat }: HeaderProp
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <h1 className="text-lg font-semibold">Endex</h1>
+        <h1 className="text-lg font-title font-semibold">Endex</h1>
         <div className="ml-auto">
           <Button
             variant={isChatOpen ? "default" : "ghost"}

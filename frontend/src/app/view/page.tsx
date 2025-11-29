@@ -13,6 +13,13 @@ import { ChatPanel } from "@/components/chat/ChatPanel"
 import { ChatMessage } from "@/components/chat/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import { parseSelectionFromUrl, Selection, TextSelection } from "@/lib/selection-utils"
+import { SelectionMenu } from "@/components/viewer/SelectionMenu"
+
+type SelectionData = {
+  selection: TextSelection
+  bounds: DOMRect
+}
 
 export default function ViewPage() {
   const searchParams = useSearchParams()
@@ -28,7 +35,11 @@ export default function ViewPage() {
   const [activeSection, setActiveSection] = useState<string | null>(null)
   const [filingId, setFilingId] = useState<string | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [urlSelection, setUrlSelection] = useState<Selection | null>(null)
+  const [activeTextSelection, setActiveTextSelection] = useState<SelectionData | null>(null)
+  const [confirmedSelection, setConfirmedSelection] = useState<TextSelection | null>(null)
   const scrollContainerRef = useRef<HTMLElement>(null)
+
 
   useEffect(() => {
     if (!url) {
@@ -43,6 +54,10 @@ export default function ViewPage() {
         const data = await fetchFiling(url)
         setHtml(data.html)
         setFilingId(data.id)
+        
+        // Parse selection from URL if present
+        const parsedSelection = parseSelectionFromUrl(searchParams)
+        setUrlSelection(parsedSelection)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load filing")
       } finally {
@@ -51,7 +66,7 @@ export default function ViewPage() {
     }
 
     loadFiling()
-  }, [url])
+  }, [url, searchParams])
 
   const handleSectionsExtracted = useCallback((extractedSections: FilingSection[]) => {
     setSections(extractedSections)
@@ -183,29 +198,53 @@ export default function ViewPage() {
   }
 
   return (
-    <ViewerLayout
-      ref={scrollContainerRef}
-      header={
-        <Header
-          isSidebarOpen={isSidebarOpen}
-          onToggleSidebar={handleToggleSidebar}
-          isChatOpen={isChatOpen}
-          onToggleChat={handleToggleChat}
-        />
-      }
-      sidebar={<Sidebar sections={sections} isOpen={isSidebarOpen} activeSection={activeSection} />}
-      content={
-        <FilingRenderer html={html} onSectionsExtracted={handleSectionsExtracted} />
-      }
-      chat={isChatOpen && filingId && (
-        <ChatPanel 
-          filingId={filingId} 
-          isOpen={isChatOpen}
-          messages={chatMessages}
-          onMessagesChange={setChatMessages}
-        />
-      )}
-    />
+    <>
+      <ViewerLayout
+        ref={scrollContainerRef}
+        header={
+          <Header
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={handleToggleSidebar}
+            isChatOpen={isChatOpen}
+            onToggleChat={handleToggleChat}
+          />
+        }
+        sidebar={<Sidebar sections={sections} isOpen={isSidebarOpen} activeSection={activeSection} />}
+        content={
+          <>
+            <FilingRenderer 
+              html={html} 
+              filingId={filingId || ""} 
+              filingUrl={url}
+              selection={urlSelection || confirmedSelection}
+              onSectionsExtracted={handleSectionsExtracted}
+              onTextSelection={setActiveTextSelection}
+            />
+            {activeTextSelection && url && (
+              <SelectionMenu 
+                selection={activeTextSelection.selection}
+                bounds={activeTextSelection.bounds}
+                containerRef={scrollContainerRef}
+                filingUrl={url}
+                onConfirm={(sel) => {
+                  setConfirmedSelection(sel)
+                  setActiveTextSelection(null)
+                }}
+                onDismiss={() => setActiveTextSelection(null)}
+              />
+            )}
+          </>
+        }
+        chat={isChatOpen && filingId && (
+          <ChatPanel 
+            filingId={filingId} 
+            isOpen={isChatOpen}
+            messages={chatMessages}
+            onMessagesChange={setChatMessages}
+          />
+        )}
+      />
+    </>
   )
 }
 

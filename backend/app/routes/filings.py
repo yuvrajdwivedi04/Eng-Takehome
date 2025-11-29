@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import httpx
+from io import StringIO
 
 from app.services.filing_fetcher import FilingFetcher, InvalidFilingUrlError
 from app.services.filing_cache import filing_cache
 from app.utils.sanitize_html import sanitize
+from app.services.csv_generator import extract_table_at_index, generate_csv
 
 
 router = APIRouter(prefix="/api/filings", tags=["filings"])
@@ -70,5 +73,64 @@ async def open_filing(request: OpenFilingRequest):
         raise HTTPException(
             status_code=500,
             detail=f"Internal error: {str(e)}"
+        )
+
+
+@router.get("/{filing_id}/tables/{table_index}.csv")
+async def download_table_csv(filing_id: str, table_index: int):
+    """
+    Download a specific table from a filing as CSV.
+    
+    Args:
+        filing_id: The filing identifier (SHA-1 hash of source URL)
+        table_index: Zero-based index of the table to export
+        
+    Returns:
+        CSV file as streaming response
+        
+    Raises:
+        HTTPException: 404 if filing not found or table index out of range,
+                      400 if table index is invalid
+    """
+    # Validate table index
+    if table_index < 0:
+        raise HTTPException(status_code=400, detail="Table index must be non-negative")
+    
+    # Get raw HTML from cache
+    raw_html = filing_cache.get_html(filing_id)
+    if not raw_html:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Filing '{filing_id}' not found. Please load the filing first."
+        )
+    
+    # Extract table on-demand
+    try:
+        table_data = extract_table_at_index(raw_html, table_index)
+        
+        if table_data is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Table index {table_index} not found in this filing."
+            )
+        
+        # Generate CSV
+        csv_content = generate_csv(table_data)
+        
+        # Return as streaming response
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f'attachment; filename="table-{table_index}.csv"'
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate CSV: {str(e)}"
         )
 

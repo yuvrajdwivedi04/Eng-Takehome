@@ -6,3 +6,5 @@ export interface ChatMessage {
   status?: 'sending' | 'sent' | 'error'
 }
 
+
+
