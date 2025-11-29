@@ -177,31 +177,41 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, highlight
       wrapper.className = 'table-export-wrapper'
       wrapper.style.cssText = 'position:relative;margin:1rem 0;'
       
+      // Create button group container
+      const buttonGroup = doc.createElement('div')
+      buttonGroup.className = 'table-export-group'
+      
+      // Download icon SVG (reusable)
+      const downloadIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>'
+      
+      // Share icon SVG
+      const shareIcon = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>'
+      
       // Create CSV export button
       const csvButton = doc.createElement('button')
       csvButton.className = 'table-export-btn'
       csvButton.setAttribute('data-export-table', index)
-      csvButton.textContent = 'CSV'
-      csvButton.style.cssText = 'right: 140px;'
+      csvButton.innerHTML = downloadIcon + 'CSV'
       
-      // Create Excel export button (primary action)
+      // Create Excel export button
       const xlsxButton = doc.createElement('button')
-      xlsxButton.className = 'table-export-btn table-export-btn-primary'
+      xlsxButton.className = 'table-export-btn'
       xlsxButton.setAttribute('data-export-xlsx', index)
-      xlsxButton.textContent = 'Excel'
-      xlsxButton.style.cssText = 'right: 70px;'
+      xlsxButton.innerHTML = downloadIcon + 'Excel'
       
       // Create share button
       const shareButton = doc.createElement('button')
       shareButton.className = 'table-export-btn'
       shareButton.setAttribute('data-share-table', index)
-      shareButton.textContent = 'Share'
+      shareButton.innerHTML = shareIcon + 'Share'
       
-      // Wrap: parent → wrapper → [csvButton, xlsxButton, shareButton, table]
+      // Assemble: wrapper → buttonGroup → [buttons], table
+      buttonGroup.appendChild(csvButton)
+      buttonGroup.appendChild(xlsxButton)
+      buttonGroup.appendChild(shareButton)
+      
       table.parentNode?.insertBefore(wrapper, table)
-      wrapper.appendChild(csvButton)
-      wrapper.appendChild(xlsxButton)
-      wrapper.appendChild(shareButton)
+      wrapper.appendChild(buttonGroup)
       wrapper.appendChild(table)
     })
 
