@@ -19,19 +19,22 @@ export function FilingContent({ html, onTextSelection, onTableSelection, onReady
     currentCell: HTMLElement | null
   }>({ isSelecting: false, startCell: null, currentCell: null })
 
-  // Apply innerHTML when html prop changes
+  // Track if we've signaled ready
+  const hasSignaledReady = useRef(false)
+
+  // Apply innerHTML ONLY when html prop changes
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
 
-    // Guard: only write if content is different
-    if (el.innerHTML !== html) {
-      el.innerHTML = html
+    el.innerHTML = html
+    
+    // Signal ready only once after initial render
+    if (!hasSignaledReady.current) {
+      hasSignaledReady.current = true
+      onReady?.()
     }
-
-    // Signal that DOM is ready for highlights
-    onReady?.()
-  }, [html, onReady])
+  }, [html]) // Only depend on html, NOT onReady
 
   // Attach text selection listener scoped to this container
   useEffect(() => {
@@ -137,12 +140,9 @@ export function FilingContent({ html, onTextSelection, onTableSelection, onReady
       tableDragRef.current = { isSelecting: false, startCell: null, currentCell: null }
       
       // Only emit if we entered cell-selection mode (crossed cell boundary)
-      if (!isSelecting || !startCell || !currentCell) {
-        clearCellHighlights()  // Clear only when no valid selection
-        return
-      }
+      // Don't clear highlights here - they persist until next drag starts or menu dismisses
+      if (!isSelecting || !startCell || !currentCell) return
       
-      // Keep highlights visible while menu is shown
       const result = readTableCellSelection(startCell, currentCell)
       onTableSelection(result)
     }
