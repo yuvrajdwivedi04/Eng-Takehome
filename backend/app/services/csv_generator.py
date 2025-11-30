@@ -128,12 +128,57 @@ def collapse_empty_columns(headers: list[str], rows: list[list[str]]) -> tuple[l
     return new_headers, new_rows
 
 
+def merge_currency_prefix(headers: list[str], rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
+    """
+    Merge isolated '$' columns with following value column.
+    
+    SEC tables often put $ in a separate cell from values for alignment.
+    Only merges when column data contains ONLY '$' characters (high confidence).
+    """
+    if not headers or not rows or len(headers) < 2:
+        return headers, rows
+    
+    # Find columns where DATA is ONLY '$' (ignore header - may have colspan text)
+    currency_cols = set()
+    for col_idx in range(len(headers) - 1):
+        data_values = [row[col_idx].strip() if col_idx < len(row) else "" for row in rows]
+        if all(v in ('$', '') for v in data_values) and '$' in data_values:
+            currency_cols.add(col_idx)
+    
+    if not currency_cols:
+        return headers, rows
+    
+    # Build merged structure
+    new_headers = []
+    new_rows = [[] for _ in rows]
+    skip = set()
+    
+    for col_idx in range(len(headers)):
+        if col_idx in skip:
+            continue
+        if col_idx in currency_cols:
+            next_col = col_idx + 1
+            new_headers.append(headers[next_col])
+            for i, row in enumerate(rows):
+                sym = row[col_idx].strip() if col_idx < len(row) else ""
+                val = row[next_col].strip() if next_col < len(row) else ""
+                new_rows[i].append(sym + val if sym else val)
+            skip.add(next_col)
+        else:
+            new_headers.append(headers[col_idx])
+            for i, row in enumerate(rows):
+                new_rows[i].append(row[col_idx] if col_idx < len(row) else "")
+    
+    return new_headers, new_rows
+
+
 def extract_table_from_element(table_element) -> TableData | None:
     """
     Extract TableData from a BeautifulSoup table element.
     
     Uses fixed colspan/rowspan handling that doesn't duplicate content
-    across merged cells.
+    across merged cells. Processes headers and data together to ensure
+    column alignment when headers have colspan.
     
     Args:
         table_element: BeautifulSoup table element
@@ -146,47 +191,53 @@ def extract_table_from_element(table_element) -> TableData | None:
     if not rows:
         return None
     
-    # Detect headers (first row with <th> OR first row if no <th>)
+    # Detect which row is the header (first row with <th> OR first row)
     header_row_idx = 0
-    headers = []
     
     for idx, row in enumerate(rows):
         ths = row.find_all("th")
         if ths:
             header_row_idx = idx
-            headers = [extract_cell_text(th) for th in ths]
             break
     
-    # If no <th> found, use first row as headers
-    if not headers and rows:
-        first_row_cells = rows[0].find_all(['td', 'th'])
-        if first_row_cells:
-            headers = [extract_cell_text(cell) for cell in first_row_cells]
-            header_row_idx = 0
-        else:
-            # No headers at all, generate generic ones
-            first_data_cells = rows[1].find_all(['td', 'th']) if len(rows) > 1 else []
-            col_count = len(first_data_cells) if first_data_cells else 1
-            headers = [f"Column {i+1}" for i in range(col_count)]
+    # Process header + data rows together to ensure column alignment
+    # This correctly handles colspan in headers (common in SEC financial tables)
+    all_content_rows = rows[header_row_idx:]
+    full_grid = handle_merged_cells(all_content_rows)
     
-    # Extract data rows (all rows after header)
-    data_rows = rows[header_row_idx + 1:] if len(rows) > header_row_idx + 1 else []
+    if not full_grid:
+        return TableData(headers=[], rows=[])
     
-    if not data_rows:
-        # Table with headers only
-        return TableData(headers=headers, rows=[])
+    # First row is headers (now colspan-expanded), rest is data
+    headers = full_grid[0]
+    grid = full_grid[1:] if len(full_grid) > 1 else []
     
-    # Handle merged cells to create regular grid (with fix for duplication)
-    grid = handle_merged_cells(data_rows)
+    # Skip sparse header rows (≤1 non-empty cell) - likely title or empty row
+    if headers:
+        non_empty_count = sum(1 for h in headers if h.strip())
+        
+        if non_empty_count <= 1 and grid:
+            candidate = grid[0]
+            candidate_count = sum(1 for h in candidate if h.strip())
+            
+            # Only promote if candidate has strictly more content
+            if candidate_count > non_empty_count:
+                headers = candidate
+                grid = grid[1:]
     
-    if not grid:
-        return TableData(headers=headers, rows=[])
+    # Handle edge case: no headers detected, generate generic ones
+    if not any(h.strip() for h in headers) and grid:
+        col_count = len(grid[0]) if grid else 1
+        headers = [f"Column {i+1}" for i in range(col_count)]
     
     # Remove completely empty rows
     grid = [row for row in grid if any(cell.strip() for cell in row)]
     
     # Collapse empty columns left by merged cell handling
     headers, grid = collapse_empty_columns(headers, grid)
+    
+    # Merge '$' columns with adjacent values for cleaner export
+    headers, grid = merge_currency_prefix(headers, grid)
     
     return TableData(headers=headers, rows=grid)
 

@@ -9,6 +9,7 @@ import re
 import httpx
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import urlparse, parse_qs
 import logging
 
 from app.config import SEC_USER_AGENT
@@ -67,13 +68,24 @@ class ExhibitFetcher:
         """
         Extract CIK and accession number from a SEC filing URL.
         
+        Handles both direct URLs and IXBRL viewer URLs (/ix?doc=...).
+        
         Args:
-            source_url: Full SEC filing URL
+            source_url: Full SEC filing URL (direct or IXBRL viewer format)
             
         Returns:
             Tuple of (cik, accession) or None if parsing fails
         """
-        match = ExhibitFetcher.SEC_URL_PATTERN.search(source_url)
+        # Resolve IXBRL viewer URLs to direct paths before parsing
+        url = source_url
+        parsed = urlparse(source_url)
+        if parsed.path == "/ix":
+            query = parse_qs(parsed.query)
+            doc_path = query.get("doc", [None])[0]
+            if doc_path:
+                url = f"https://www.sec.gov{doc_path}"
+        
+        match = ExhibitFetcher.SEC_URL_PATTERN.search(url)
         if match:
             return match.group(1), match.group(2)
         return None
