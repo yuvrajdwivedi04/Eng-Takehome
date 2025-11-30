@@ -19,6 +19,9 @@ OPENAI_API_KEY=your-openai-api-key-here
 
 # Optional: Frontend URL for deep links in exports (default: http://localhost:3000)
 FRONTEND_URL=http://localhost:3000
+
+# Optional: Comma-separated allowed origins for CORS (default: localhost:3000,3001)
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
 #### Frontend (`frontend/.env.local`)

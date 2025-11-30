@@ -1,5 +1,11 @@
 "use client"
 
+/**
+ * FilingRenderer
+ * 
+ * Renders SEC filing HTML with export buttons and selection handling
+ * Processes HTML client-side to inject table action buttons
+ */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { getTableCsvUrl, getTableXlsxUrl } from "@/lib/api"
 import { Selection, getShareableUrl, TextSelection, TableSelection } from "@/lib/selection-utils"
@@ -48,6 +54,7 @@ export function FilingRenderer({ html, filingId, filingUrl, selection, highlight
   }, [highlightedElement, contentReady])
   
   const processedHtml = useMemo(() => {
+    // Skip DOM processing during SSR - DOMParser not available server-side
     if (typeof window === "undefined") {
       return html
     }

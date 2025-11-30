@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from typing import Optional
 import logging
 
+from app.config import SEC_USER_AGENT
+
 logger = logging.getLogger(__name__)
 
 
@@ -160,7 +162,7 @@ class ExhibitFetcher:
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 headers = {
-                    "User-Agent": "Endex SEC Filing Viewer (compliance@endex.io)"
+                    "User-Agent": SEC_USER_AGENT
                 }
                 response = await client.get(index_url, headers=headers)
                 response.raise_for_status()

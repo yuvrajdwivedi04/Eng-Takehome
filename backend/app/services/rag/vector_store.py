@@ -1,7 +1,11 @@
+"""
+Vector storage with hybrid search (semantic + BM25 keyword)
+"""
 from collections import OrderedDict
 from typing import Optional
 import numpy as np
 import logging
+from app.config import CACHE_MAX_FILINGS
 from app.services.filing_cache import filing_cache
 from app.services.rag.keyword_index import bm25_index
 
@@ -17,7 +21,7 @@ def _min_max_normalize(scores: np.ndarray, epsilon: float = 1e-9) -> np.ndarray:
 
 
 class VectorStore:
-    def __init__(self, max_filings: int = 50):
+    def __init__(self, max_filings: int = CACHE_MAX_FILINGS):
         self.store: OrderedDict[str, dict] = OrderedDict()
         self.max_filings = max_filings
     

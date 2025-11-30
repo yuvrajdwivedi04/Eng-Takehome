@@ -1,6 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+/**
+ * Sidebar
+ * 
+ * Left panel with document navigation, table downloads, and saved highlights
+ */
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { fetchExhibits, Exhibit, getAllTablesXlsxUrl, getAllTablesCsvZipUrl } from "@/lib/api"
@@ -26,13 +31,11 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
   const [loading, setLoading] = useState(false)
   const [downloadOpen, setDownloadOpen] = useState(false)
   const [originalFilingUrl, setOriginalFilingUrl] = useState<string | null>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
   
   // Highlights state
   const [highlightsOpen, setHighlightsOpen] = useState(false)
   const [highlights, setHighlights] = useState<StoredHighlight[]>([])
   const [copiedHighlightId, setCopiedHighlightId] = useState<string | null>(null)
-  const highlightsRef = useRef<HTMLDivElement>(null)
 
   // Track original filing URL (for determining which doc is active)
   useEffect(() => {
@@ -63,19 +66,6 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
       .finally(() => setLoading(false))
   }, [filingId])
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDownloadOpen(false)
-      }
-      if (highlightsRef.current && !highlightsRef.current.contains(e.target as Node)) {
-        setHighlightsOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
 
   // Load highlights when filingId or highlightVersion changes
   useEffect(() => {
@@ -106,7 +96,7 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
 
   const handleJumpToHighlight = (highlight: StoredHighlight) => {
     onJumpToHighlight?.(highlight.selection)
-    setHighlightsOpen(false)
+    // Don't close the menu - user might want to jump to multiple highlights
   }
 
   // Handle document click - navigate in same page
@@ -146,10 +136,10 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
       {!isOpen && onOpen && (
         <button
           onClick={onOpen}
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-30 bg-dark border border-white/10 border-l-0 p-2 text-gray-400 hover:text-white hover:bg-white/5 transition-colors rounded-r"
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-30 h-16 w-14 flex items-center justify-center bg-dark border border-white/10 border-l-0 text-gray-400 hover:text-white hover:bg-white/5 transition-all"
           aria-label="Open sidebar"
         >
-          <PanelLeft className="h-4 w-4" />
+          <PanelLeft className="h-6 w-6" />
         </button>
       )}
       
@@ -183,7 +173,7 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
                 
                 {/* Download Tables Dropdown */}
                 {filingId && (
-                  <div className="relative" ref={dropdownRef}>
+                  <div className="relative">
                     <button
                       onClick={() => setDownloadOpen(!downloadOpen)}
                       className={cn(
@@ -196,33 +186,36 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
                         Download Tables
                       </span>
                       <ChevronDown className={cn(
-                        "h-4 w-4 transition-transform",
+                        "h-4 w-4 transition-transform duration-300 ease-out",
                         downloadOpen && "rotate-180"
                       )} />
                     </button>
                     
-                    {downloadOpen && (
-                      <div className="border border-white/10 border-t-0">
-                        <button
-                          onClick={() => {
-                            window.location.href = getAllTablesXlsxUrl(filingId)
-                            setDownloadOpen(false)
-                          }}
-                          className="w-full px-3 py-2.5 text-sm text-left text-gray-300 hover:bg-brand-teal/10 hover:text-brand-teal transition-colors border-b border-white/10"
-                        >
-                          Excel (.xlsx)
-                        </button>
-                        <button
-                          onClick={() => {
-                            window.location.href = getAllTablesCsvZipUrl(filingId)
-                            setDownloadOpen(false)
-                          }}
-                          className="w-full px-3 py-2.5 text-sm text-left text-gray-300 hover:bg-brand-teal/10 hover:text-brand-teal transition-colors"
-                        >
-                          CSV (.zip)
-                        </button>
-                      </div>
-                    )}
+                    <div className={cn(
+                      "border border-white/10 border-t-0 transition-all duration-200 ease-out overflow-hidden",
+                      downloadOpen 
+                        ? "opacity-100 max-h-40" 
+                        : "opacity-0 max-h-0 pointer-events-none"
+                    )}>
+                      <button
+                        onClick={() => {
+                          window.location.href = getAllTablesXlsxUrl(filingId)
+                          setDownloadOpen(false)
+                        }}
+                        className="w-full px-3 py-2.5 text-sm text-left text-gray-300 hover:bg-brand-teal/10 hover:text-brand-teal transition-colors border-b border-white/10"
+                      >
+                        Excel (.xlsx)
+                      </button>
+                      <button
+                        onClick={() => {
+                          window.location.href = getAllTablesCsvZipUrl(filingId)
+                          setDownloadOpen(false)
+                        }}
+                        className="w-full px-3 py-2.5 text-sm text-left text-gray-300 hover:bg-brand-teal/10 hover:text-brand-teal transition-colors"
+                      >
+                        CSV (.zip)
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -292,7 +285,7 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
                   )}
                 </h2>
                 
-                <div className="relative" ref={highlightsRef}>
+                <div className="relative">
                   <button
                     onClick={() => setHighlightsOpen(!highlightsOpen)}
                     className={cn(
@@ -305,13 +298,18 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
                       {highlights.length === 0 ? "No highlights yet" : `${highlights.length} saved`}
                     </span>
                     <ChevronDown className={cn(
-                      "h-4 w-4 transition-transform",
+                      "h-4 w-4 transition-transform duration-300 ease-out",
                       highlightsOpen && "rotate-180"
                     )} />
                   </button>
                   
-                  {highlightsOpen && (
-                    <div className="border border-white/10 border-t-0 max-h-64 overflow-y-auto scrollbar-subtle">
+                  <div className={cn(
+                    "border border-white/10 border-t-0 transition-all duration-200 ease-out overflow-hidden",
+                    highlightsOpen 
+                      ? "opacity-100 max-h-64" 
+                      : "opacity-0 max-h-0 pointer-events-none"
+                  )}>
+                    <div className="max-h-64 overflow-y-auto scrollbar-subtle">
                       {highlights.length === 0 ? (
                         <p className="text-sm text-gray-500 px-3 py-3">
                           Select text in the filing and copy the link to save highlights here.
@@ -362,7 +360,7 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highligh
                         ))
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>

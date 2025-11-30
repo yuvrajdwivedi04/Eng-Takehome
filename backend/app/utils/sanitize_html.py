@@ -1,3 +1,8 @@
+"""
+HTML sanitizer for SEC filings
+
+Removes scripts, styles, and unsafe content while preserving document structure
+"""
 from bs4 import BeautifulSoup
 import re
 

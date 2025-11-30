@@ -1,14 +1,19 @@
+"""
+Company search endpoints for SEC EDGAR filings by ticker or CIK
+"""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import httpx
 from typing import Optional
 import re
 
+from app.config import SEC_USER_AGENT
+
 router = APIRouter(prefix="/api/company", tags=["company"])
 
 # SEC API headers - required for SEC EDGAR
 SEC_HEADERS = {
-    "User-Agent": "EndSec Research contact@endsec.com",
+    "User-Agent": SEC_USER_AGENT,
     "Accept-Encoding": "gzip, deflate",
 }
 

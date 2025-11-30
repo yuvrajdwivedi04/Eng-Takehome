@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { parseSelectionFromUrl, Selection, TextSelection, TableSelection } from "@/lib/selection-utils"
 import { SelectionMenu } from "@/components/viewer/SelectionMenu"
 import { TableSelectionMenu } from "@/components/viewer/TableSelectionMenu"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare, AlertTriangle, FileX, ArrowLeft } from "lucide-react"
 
 type SelectionData = {
   selection: TextSelection
@@ -184,16 +184,90 @@ export default function ViewPage() {
   }
 
   if (error) {
+    // Determine error type for appropriate icon and messaging
+    const isNotFound = error.toLowerCase().includes("not found") || error.includes("404")
+    const isNetworkError = error.toLowerCase().includes("fetch") || error.toLowerCase().includes("network")
+    const isInvalidUrl = error.toLowerCase().includes("url") || error.toLowerCase().includes("invalid")
+    
+    const ErrorIcon = isNotFound ? FileX : AlertTriangle
+    const errorTitle = isNotFound 
+      ? "Filing Not Found" 
+      : isInvalidUrl 
+        ? "Invalid Filing URL" 
+        : "Unable to Load Filing"
+    
+    // Simplified user-friendly error messages
+    const errorMessage = isNotFound
+      ? "The requested SEC filing could not be found."
+      : isNetworkError
+        ? "Could not connect to SEC servers. Please try again."
+        : isInvalidUrl
+          ? "The URL provided is not a valid SEC filing."
+          : "An error occurred while loading the filing."
+    
     return (
       <ViewerLayout
         header={<Header isSidebarOpen={false} onToggleSidebar={() => {}} />}
         sidebar={null}
         content={
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center space-y-4 max-w-md">
-              <h2 className="text-2xl font-semibold">Unable to load filing</h2>
-              <p className="text-muted-foreground">{error}</p>
-              <Button onClick={() => router.push("/")}>Return to Home</Button>
+          <div className="flex items-center justify-center h-full p-4">
+            <div className="w-full max-w-lg animate-fade-in">
+              {/* Error card - boxy design matching app aesthetic */}
+              <div className="bg-dark border border-white/10 p-8">
+                {/* Icon */}
+                <div className="flex justify-center mb-6">
+                  <div className="w-16 h-16 bg-white/5 border border-white/10 flex items-center justify-center">
+                    <ErrorIcon className="w-8 h-8 text-gray-400" />
+                  </div>
+                </div>
+                
+                {/* Title */}
+                <h2 className="text-2xl font-normal text-white text-center mb-3">
+                  {errorTitle}
+                </h2>
+                
+                {/* Error message */}
+                <p className="text-gray-400 text-center text-sm mb-6">
+                  {errorMessage}
+                </p>
+                
+                {/* Attempted URL (if available) */}
+                {url && (
+                  <div className="bg-white/5 border border-white/10 p-3 mb-6">
+                    <p className="text-xs text-gray-500 mb-1">Attempted URL</p>
+                    <p className="text-sm text-gray-300 break-all font-mono">
+                      {url.length > 80 ? `${url.slice(0, 80)}...` : url}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    onClick={() => router.push("/")}
+                    className="flex-1 h-12 bg-white text-dark hover:bg-brand-teal hover:text-white transition-all"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Return Home
+                  </Button>
+                  {url && (
+                    <Button 
+                      onClick={() => window.location.reload()}
+                      className="flex-1 h-12 bg-white text-dark hover:bg-brand-teal hover:text-white transition-all"
+                    >
+                      Try Again
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Help text */}
+              <p className="text-center text-xs text-gray-500 mt-4">
+                {isNetworkError 
+                  ? "Check your connection and try again"
+                  : "Make sure the URL points to a valid SEC filing"
+                }
+              </p>
             </div>
           </div>
         }
@@ -208,8 +282,29 @@ export default function ViewPage() {
         header={<Header isSidebarOpen={false} onToggleSidebar={() => {}} />}
         sidebar={null}
         content={
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">No filing data available</p>
+          <div className="flex items-center justify-center h-full p-4">
+            <div className="w-full max-w-lg animate-fade-in">
+              <div className="bg-dark border border-white/10 p-8">
+                <div className="flex justify-center mb-6">
+                  <div className="w-16 h-16 bg-white/5 border border-white/10 flex items-center justify-center">
+                    <FileX className="w-8 h-8 text-gray-400" />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-normal text-white text-center mb-3">
+                  No Filing Data
+                </h2>
+                <p className="text-gray-400 text-center text-sm mb-6">
+                  The filing could not be loaded or contains no displayable content.
+                </p>
+                <Button 
+                  onClick={() => router.push("/")}
+                  className="w-full h-12 bg-white text-dark hover:bg-brand-teal hover:text-white transition-all"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Return Home
+                </Button>
+              </div>
+            </div>
           </div>
         }
       />
@@ -302,10 +397,10 @@ export default function ViewPage() {
       {!isChatOpen && (
         <Button
           onClick={handleToggleChat}
-          className="fixed right-0 top-1/2 -translate-y-1/2 h-16 w-14 rounded-none rounded-l-md bg-dark border border-white/10 border-r-0 text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+          className="fixed right-0 top-1/2 -translate-y-1/2 h-16 w-14 rounded-none bg-dark border border-white/10 border-r-0 text-gray-400 hover:text-white hover:bg-white/5 transition-all"
           aria-label="Open chat"
         >
-          <MessageSquare className="h-8 w-8" />
+          <MessageSquare className="h-6 w-6" />
         </Button>
       )}
     </>

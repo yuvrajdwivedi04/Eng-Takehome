@@ -1,3 +1,6 @@
+"""
+Chat endpoint for RAG-powered Q&A on SEC filings
+"""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from datetime import datetime
@@ -5,7 +8,7 @@ import logging
 from openai import OpenAIError
 
 from app.services.filing_cache import filing_cache
-from app.services.rag import VectorStore, chunk_filing, embed_texts
+from app.services.rag import vector_store, chunk_filing, embed_texts
 from app.services.llm import answer_question
 
 # Configure logging
@@ -13,7 +16,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
-vector_store = VectorStore(max_filings=50)
 
 
 class ChatMessage(BaseModel):

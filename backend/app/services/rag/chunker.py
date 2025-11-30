@@ -1,7 +1,13 @@
+"""
+Filing chunker for RAG ingestion
+
+Extracts tables, converts to LLM-optimized format, chunks with overlap
+"""
 import tiktoken
 from bs4 import BeautifulSoup
 import logging
 
+from app.config import TOKENIZER_MODEL
 from app.utils.sanitize_html import sanitize
 from app.services.rag.table_formatter import format_table_for_llm
 
@@ -37,7 +43,7 @@ def extract_tables(soup: BeautifulSoup) -> list[dict]:
     return tables
 
 
-def chunk_filing(html: str) -> list[dict]:
+def chunk_filing(html: str) -> tuple[list[dict], list[dict]]:
     """
     Phase 3B: Extract tables, convert to markdown, chunk with structure preserved.
     Captures element indices from data-element-index attributes for source linking.
@@ -147,7 +153,7 @@ def find_element_indices_for_chunk(chunk_text: str, element_text_map: list[dict]
 
 def chunk_text(text: str, max_tokens: int = 1000, overlap: int = 200) -> list[str]:
     """Split text into overlapping chunks of ~max_tokens."""
-    encoding = tiktoken.encoding_for_model("gpt-4")
+    encoding = tiktoken.encoding_for_model(TOKENIZER_MODEL)
     tokens = encoding.encode(text)
     
     chunks = []
@@ -169,7 +175,7 @@ def chunk_text(text: str, max_tokens: int = 1000, overlap: int = 200) -> list[st
 
 
 def count_tokens(text: str) -> int:
-    """Count tokens in text using GPT-4 encoding."""
-    encoding = tiktoken.encoding_for_model("gpt-4")
+    """Count tokens in text using tiktoken encoding."""
+    encoding = tiktoken.encoding_for_model(TOKENIZER_MODEL)
     return len(encoding.encode(text))
 

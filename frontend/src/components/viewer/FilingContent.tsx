@@ -1,5 +1,11 @@
 "use client"
 
+/**
+ * FilingContent
+ * 
+ * Container for filing HTML with selection handling
+ * Two modes: text selection (browser native) and table cell range selection (drag across cells)
+ */
 import { useEffect, useRef } from "react"
 import { TextSelection, TableSelection } from "@/lib/selection-utils"
 import { readTextSelection, readTableCellSelection } from "@/hooks/useTextSelection"

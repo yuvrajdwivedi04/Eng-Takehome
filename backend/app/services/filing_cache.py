@@ -1,16 +1,39 @@
+"""
+LRU cache for SEC filing HTML content.
+
+Provides in-memory storage with automatic eviction of least-recently-used
+filings when capacity is reached.
+"""
+
 from collections import OrderedDict
 from datetime import datetime
 import logging
+
+from app.config import CACHE_MAX_FILINGS
 
 logger = logging.getLogger(__name__)
 
 
 class FilingCache:
-    def __init__(self, max_filings: int = 50):
+    """In-memory LRU cache for SEC filing HTML and metadata."""
+    
+    def __init__(self, max_filings: int = CACHE_MAX_FILINGS):
+        """Initialize cache with specified capacity."""
         self._cache: OrderedDict[str, dict] = OrderedDict()
         self.max_filings = max_filings
     
     def store(self, filing_id: str, html: str, source_url: str):
+        """
+        Store a filing's HTML content and source URL.
+        
+        Evicts the least-recently-used entry if cache is at capacity.
+        Storing an existing filing_id updates it and marks it as most recent.
+        
+        Args:
+            filing_id: Unique identifier (typically SHA-1 hash of URL)
+            html: Raw HTML content of the filing
+            source_url: Original SEC EDGAR URL
+        """
         if len(self._cache) >= self.max_filings:
             oldest = next(iter(self._cache))
             del self._cache[oldest]
@@ -24,6 +47,7 @@ class FilingCache:
         self._cache.move_to_end(filing_id)
     
     def get_html(self, filing_id: str) -> str | None:
+        """Retrieve cached HTML for a filing, or None if not cached."""
         entry = self._cache.get(filing_id)
         if entry:
             self._cache.move_to_end(filing_id)
@@ -35,14 +59,13 @@ class FilingCache:
         return entry.get("source_url") if entry else None
     
     def has_filing(self, filing_id: str) -> bool:
+        """Check whether a filing exists in the cache."""
         return filing_id in self._cache
     
     def evict(self, filing_id: str):
+        """Remove a filing from the cache if present."""
         if filing_id in self._cache:
             del self._cache[filing_id]
 
 
 filing_cache = FilingCache()
-
-
-

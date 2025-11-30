@@ -1,3 +1,8 @@
+/**
+ * ChatMessage
+ * 
+ * Single message bubble with inline citation badges and source cards
+ */
 import { ChatMessage as ChatMessageType } from "./types"
 import { SourcesList } from "./SourcesList"
 import { CitationBadge } from "./CitationBadge"

@@ -69,7 +69,7 @@ const config: Config = {
           '100%': { opacity: '1' },
         },
         'slide-up-fade': {
-          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '0%': { opacity: '0', transform: 'translateY(30px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
       },
@@ -78,7 +78,7 @@ const config: Config = {
         'flow-diagonal': 'flow-diagonal 20s linear infinite',
         'color-cycle': 'color-cycle 8s ease-in-out infinite',
         'fade-in': 'fade-in 0.5s ease-out',
-        'slide-up-fade': 'slide-up-fade 0.4s ease-out',
+        'slide-up-fade': 'slide-up-fade 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },

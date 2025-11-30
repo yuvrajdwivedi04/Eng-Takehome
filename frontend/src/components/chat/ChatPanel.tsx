@@ -1,3 +1,9 @@
+/**
+ * ChatPanel
+ * 
+ * Chat interface for SEC filing Q&A
+ * Manages message state and API communication
+ */
 import { useState, useEffect, useRef } from "react"
 import { ChatMessage as ChatMessageType } from "./types"
 import { ChatMessage } from "./ChatMessage"

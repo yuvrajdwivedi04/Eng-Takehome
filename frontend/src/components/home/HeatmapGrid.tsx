@@ -45,7 +45,7 @@ export function HeatmapGrid() {
   }, [])
 
   return (
-    <div className="fixed left-8 md:left-32 right-8 md:right-32 top-[55vh] bottom-0 overflow-hidden bg-dark">
+    <div className="fixed left-8 md:left-32 right-8 md:right-32 top-[55vh] bottom-0 overflow-hidden bg-dark z-0">
       <div className="relative w-full h-full flex">
         {Array.from({ length: cols }).map((_, colIndex) => {
           const topOffset = jaggedOffsets[colIndex]

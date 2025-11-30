@@ -1,8 +1,12 @@
+"""
+OpenAI chat completion client for answering filing questions
+"""
 from functools import lru_cache
 from openai import OpenAI
 import asyncio
 from typing import List, Dict
 from .prompts import ANSWER_PROMPT
+from app.config import LLM_MODEL, LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TIMEOUT_SECONDS
 
 
 @lru_cache(maxsize=1)
@@ -41,14 +45,14 @@ async def answer_question(
         response = await asyncio.wait_for(
             asyncio.to_thread(
                 get_client().chat.completions.create,
-                model="gpt-4-turbo-preview",
+                model=LLM_MODEL,
                 messages=messages,
-                temperature=0.2,
-                max_tokens=800
+                temperature=LLM_TEMPERATURE,
+                max_tokens=LLM_MAX_TOKENS
             ),
-            timeout=30.0
+            timeout=LLM_TIMEOUT_SECONDS
         )
         return response.choices[0].message.content
     except asyncio.TimeoutError:
-        raise TimeoutError("LLM call exceeded 30 second timeout")
+        raise TimeoutError(f"LLM call exceeded {LLM_TIMEOUT_SECONDS} second timeout")
 

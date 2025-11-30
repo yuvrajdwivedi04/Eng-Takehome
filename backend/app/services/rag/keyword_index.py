@@ -9,6 +9,8 @@ from collections import Counter, OrderedDict
 from typing import List, Dict
 import logging
 
+from app.config import CACHE_MAX_FILINGS
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +20,7 @@ class BM25Index:
     Follows same LRU pattern as VectorStore and FilingCache.
     """
     
-    def __init__(self, max_filings: int = 50, k1: float = 1.5, b: float = 0.75):
+    def __init__(self, max_filings: int = CACHE_MAX_FILINGS, k1: float = 1.5, b: float = 0.75):
         self.store: OrderedDict[str, dict] = OrderedDict()
         self.max_filings = max_filings
         self.k1 = k1  # Term frequency saturation

@@ -1,9 +1,14 @@
-from fastapi import APIRouter, HTTPException
+"""
+Filing endpoints for fetching, caching, and exporting SEC documents
+"""
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import httpx
 from io import StringIO
 
+from app.rate_limiter import limiter
+from app.config import RATE_LIMIT_FILING_FETCH
 from app.services.filing_fetcher import FilingFetcher, InvalidFilingUrlError
 from app.services.filing_cache import filing_cache
 from app.utils.sanitize_html import sanitize
@@ -27,12 +32,15 @@ class OpenFilingResponse(BaseModel):
 
 
 @router.post("/open-filing", response_model=OpenFilingResponse)
-async def open_filing(request: OpenFilingRequest):
+@limiter.limit(RATE_LIMIT_FILING_FETCH)
+async def open_filing(request: Request, body: OpenFilingRequest):
+    # NOTE: SlowAPI requires `request` as first arg - do not reorder parameters
     """
     Fetch and sanitize a SEC filing from a URL.
     
     Args:
-        request: Contains the SEC filing URL
+        request: FastAPI Request object (required by rate limiter)
+        body: Contains the SEC filing URL
         
     Returns:
         Filing ID, source URL, and sanitized HTML
@@ -40,27 +48,27 @@ async def open_filing(request: OpenFilingRequest):
     Raises:
         HTTPException: 400 if URL is invalid, 502 if network failure, 500 for other errors
     """
-    if not request.url:
+    if not body.url:
         raise HTTPException(status_code=400, detail="URL is required")
     
     try:
         fetcher = FilingFetcher()
         
         # Generate deterministic filing ID
-        filing_id = fetcher.generate_filing_id(request.url)
+        filing_id = fetcher.generate_filing_id(body.url)
         
         # Fetch raw HTML
-        raw_html = await fetcher.fetch(request.url)
+        raw_html = await fetcher.fetch(body.url)
         
         # Cache raw HTML for Phase 3 chat retrieval
-        filing_cache.store(filing_id, raw_html, request.url)
+        filing_cache.store(filing_id, raw_html, body.url)
         
         # Sanitize HTML
         sanitized_html = sanitize(raw_html)
         
         return OpenFilingResponse(
             id=filing_id,
-            sourceUrl=request.url,
+            sourceUrl=body.url,
             html=sanitized_html
         )
     except InvalidFilingUrlError as e:
@@ -77,9 +85,7 @@ async def open_filing(request: OpenFilingRequest):
         )
 
 
-# =============================================================================
-# BULK TABLE EXPORTS - Must be defined BEFORE parameterized routes
-# =============================================================================
+# --- Bulk Table Exports (must be defined BEFORE parameterized routes) ---
 
 @router.get("/{filing_id}/tables/all.xlsx")
 async def download_all_tables_xlsx(filing_id: str):
@@ -184,9 +190,7 @@ async def download_all_tables_csv_zip(filing_id: str):
         )
 
 
-# =============================================================================
-# INDIVIDUAL TABLE EXPORTS - Parameterized routes must come AFTER bulk routes
-# =============================================================================
+# --- Individual Table Exports (parameterized routes must come AFTER bulk) ---
 
 @router.get("/{filing_id}/tables/{table_index}.csv")
 async def download_table_csv(filing_id: str, table_index: int):
@@ -318,9 +322,7 @@ async def download_table_xlsx(filing_id: str, table_index: int):
         )
 
 
-# =============================================================================
-# EXHIBITS ENDPOINT
-# =============================================================================
+# --- Exhibits ---
 
 class ExhibitModel(BaseModel):
     """A single exhibit file from a SEC filing."""

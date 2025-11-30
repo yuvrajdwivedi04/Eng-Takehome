@@ -9,7 +9,7 @@
  */
 export function FrameGrid() {
   return (
-    <div className="fixed inset-0 pointer-events-none z-40" aria-hidden="true">
+    <div className="fixed inset-0 pointer-events-none z-[5]" aria-hidden="true">
       {/* Left Vertical Line - Full Height */}
       <div className="absolute top-0 bottom-0 left-8 md:left-32 w-px bg-frame" />
       
