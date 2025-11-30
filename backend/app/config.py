@@ -7,7 +7,7 @@ All values can be overridden via environment variables.
 import os
 
 # LLM (Chat Completion)
-LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4-turbo")
+LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o")
 LLM_TEMPERATURE = float(os.environ.get("LLM_TEMPERATURE", "0.2"))
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "800"))
 LLM_TIMEOUT_SECONDS = float(os.environ.get("LLM_TIMEOUT_SECONDS", "30.0"))
@@ -28,7 +28,7 @@ SEC_USER_AGENT = os.environ.get(
 CACHE_MAX_FILINGS = 50
 
 # Rate Limiting
-RATE_LIMIT_FILING_FETCH = os.environ.get("RATE_LIMIT_FILING_FETCH", "10/minute")
+RATE_LIMIT_FILING_FETCH = os.environ.get("RATE_LIMIT_FILING_FETCH", "30/minute")
 
 # Ticker Lookup Cache
 TICKER_CACHE_TTL_SECONDS = int(os.environ.get("TICKER_CACHE_TTL_SECONDS", "3600"))

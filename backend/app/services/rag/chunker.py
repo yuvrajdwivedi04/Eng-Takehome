@@ -71,8 +71,8 @@ def chunk_filing(html: str) -> tuple[list[dict], list[dict]]:
                 "is_table_cell": is_table_cell
             })
     
-    # Continue with RAW html for chunking (embeddings should be based on raw content)
-    soup = BeautifulSoup(html, "html.parser")
+    # Use sanitized HTML for chunking (removes hidden content, scripts, styles)
+    soup = sanitized_soup
     
     # Extract and convert tables to markdown
     tables = extract_tables(soup)

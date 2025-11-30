@@ -2,7 +2,28 @@
 
 A tool for exploring SEC filings with an AI-powered chat interface. Load any 10-K, 10-Q, or other SEC document by URL, ticker, or CIK, then ask questions about it. An LLM responds with answers grounded in the actual filing text, complete with citations you can click to jump to the source.
 
-## Running Locally
+## Quick Start (Docker)
+
+The easiest way to run the project. Requires Docker Desktop.
+
+```bash
+# 1. Copy the environment template and add your OpenAI API key
+cp .env.example .env
+# Edit .env and set OPENAI_API_KEY=sk-your-actual-key
+
+# 2. Start the app
+docker compose up
+```
+
+First build takes 2-3 minutes. Once running, open `http://localhost:3000`.
+
+To stop: `Ctrl+C` or `docker compose down`
+
+To rebuild after code changes: `docker compose up --build`
+
+---
+
+## Running Locally (Without Docker)
 
 You'll need Python 3.10+, Node.js 18+, and an OpenAI API key.
 
@@ -14,8 +35,8 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Create environment file
-echo "OPENAI_API_KEY=your-key-here" > .env
+# Set your OpenAI API key
+export OPENAI_API_KEY=your-key-here  # On Windows: set OPENAI_API_KEY=your-key-here
 
 # Start the server
 uvicorn app.main:app --reload
@@ -86,5 +107,3 @@ The browse page shows the company name, recent filings with dates and descriptio
 The backend is built using FastAPI with async throughout. The filing HTML goes through BeautifulSoup for sanitization and table extraction. Then, our RAG pipeline chunks documents with overlap, tracks element positions for citation linking, and stores everything in memory.
 
 The frontend is Next.js 14 with the App Router. The viewer renders sanitized HTML with data attributes that enable selection tracking. Chat state persists when switching between documents in the same session.
-
-
