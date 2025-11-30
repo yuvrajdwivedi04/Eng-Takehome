@@ -21,8 +21,8 @@ class VectorStore:
         self.store: OrderedDict[str, dict] = OrderedDict()
         self.max_filings = max_filings
     
-    def ingest(self, filing_id: str, chunks: list[dict], vectors: list[list[float]]):
-        """Store chunks and vectors with LRU eviction. Also indexes for BM25."""
+    def ingest(self, filing_id: str, chunks: list[dict], vectors: list[list[float]], element_text_map: list[dict] = None):
+        """Store chunks, vectors, and element_text_map with LRU eviction. Also indexes for BM25."""
         if len(self.store) >= self.max_filings:
             oldest = next(iter(self.store))
             del self.store[oldest]
@@ -32,7 +32,8 @@ class VectorStore:
         
         self.store[filing_id] = {
             "chunks": chunks,
-            "vectors": np.array(vectors)
+            "vectors": np.array(vectors),
+            "element_text_map": element_text_map or []
         }
         self.store.move_to_end(filing_id)
         
@@ -117,6 +118,12 @@ class VectorStore:
     
     def has_filing(self, filing_id: str) -> bool:
         return filing_id in self.store
+    
+    def get_element_map(self, filing_id: str) -> list[dict]:
+        """Get element_text_map for a filing, or empty list if not found."""
+        if filing_id not in self.store:
+            return []
+        return self.store[filing_id].get("element_text_map", [])
 
 
 vector_store = VectorStore()

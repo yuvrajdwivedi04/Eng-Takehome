@@ -229,9 +229,12 @@ def chunk_filing(html: str) -> list[dict]:
     for tag in sanitized_soup.find_all(attrs={"data-element-index": True}):
         text_content = tag.get_text(separator=" ", strip=True)
         if text_content:
+            # Check if element is inside a table
+            is_table_cell = tag.name in ('td', 'th') or tag.find_parent('table') is not None
             element_text_map.append({
                 "index": int(tag["data-element-index"]),
-                "text": text_content[:200]  # First 200 chars for matching
+                "text": text_content,  # Full text, not truncated
+                "is_table_cell": is_table_cell
             })
     
     logger.info(f"[DEBUG] Found {len(element_text_map)} elements with data-element-index")
@@ -282,11 +285,11 @@ def chunk_filing(html: str) -> list[dict]:
     
     logger.info(f"[DEBUG] Created {len(chunks)} chunks")
     
-    # Return chunks with metadata including element_index
+    # Return chunks with metadata including element_indices
     result = []
     for i, chunk in enumerate(chunks):
-        # Find the first matching element index for this chunk
-        element_index = find_element_index_for_chunk(chunk, element_text_map)
+        # Find all matching element indices for this chunk
+        element_indices = find_element_indices_for_chunk(chunk, element_text_map)
         
         # DEBUG: Check which chunks contain "comprehensive income"
         if "comprehensive income" in chunk.lower():
@@ -302,28 +305,43 @@ def chunk_filing(html: str) -> list[dict]:
                 "position": i,
                 "token_count": count_tokens(chunk),
                 "has_table": has_table,
-                "element_index": element_index
+                "element_index": element_indices[0],  # Backwards compatible
+                "element_indices": element_indices     # All spanned elements
             }
         })
     
-    return result
+    return result, element_text_map
 
 
-def find_element_index_for_chunk(chunk_text: str, element_text_map: list[dict]) -> int:
+def find_element_indices_for_chunk(chunk_text: str, element_text_map: list[dict]) -> list[int]:
     """
-    Find the primary element index for a chunk by matching text content.
-    Returns the first matching element index, or 0 if no match found.
+    Find ALL element indices whose text overlaps with this chunk.
+    Returns list sorted by overlap score (best first), capped at 15 indices.
     """
+    if not element_text_map:
+        return [0]
+    
     chunk_lower = chunk_text.lower()
+    chunk_words = set(chunk_lower.split())
     
+    matches = []
     for elem in element_text_map:
-        # Check if element text appears in chunk (first 50 chars for efficiency)
-        elem_sample = elem["text"][:50].lower()
-        if elem_sample and elem_sample in chunk_lower:
-            return elem["index"]
+        elem_text = elem["text"].lower()
+        elem_words = set(elem_text.split())
+        overlap = len(elem_words & chunk_words)
+        
+        if overlap < 2:
+            continue
+        
+        # Score: proportion of element words found in chunk
+        score = overlap / max(len(elem_words), 1)
+        matches.append({"index": elem["index"], "score": score})
     
-    # Fallback: return 0 (beginning of document)
-    return 0
+    # Sort by score descending, cap at 15 indices
+    matches.sort(key=lambda x: x["score"], reverse=True)
+    indices = [m["index"] for m in matches[:15]]
+    
+    return indices if indices else [0]
 
 
 def chunk_text(text: str, max_tokens: int = 1000, overlap: int = 200) -> list[str]:

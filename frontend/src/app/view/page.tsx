@@ -54,6 +54,7 @@ export default function ViewPage() {
   const [activeTableSelection, setActiveTableSelection] = useState<TableSelectionData | null>(null)
   const [confirmedSelection, setConfirmedSelection] = useState<TextSelection | null>(null)
   const [highlightedElement, setHighlightedElement] = useState<number | null>(null)
+  const [highlightVersion, setHighlightVersion] = useState(0)
   const scrollContainerRef = useRef<HTMLElement>(null)
 
   // Handler for when a source is clicked in the chat panel
@@ -64,6 +65,20 @@ export default function ViewPage() {
       setHighlightedElement(null)
     }, 5000)
   }, [])
+
+  // Handler for when a saved highlight is clicked in the sidebar
+  const handleJumpToHighlight = useCallback((selection: Selection) => {
+    setUrlSelection(selection)
+    if (selection.type === "text") {
+      setConfirmedSelection(selection)
+    }
+  }, [])
+
+  // Handler for when a new highlight is saved (triggers sidebar refresh)
+  const handleHighlightSaved = useCallback(() => {
+    setHighlightVersion(v => v + 1)
+  }, [])
+
 
 
   useEffect(() => {
@@ -192,7 +207,7 @@ export default function ViewPage() {
             onToggleSidebar={handleToggleSidebar}
           />
         }
-        sidebar={<Sidebar filingId={filingId} sourceUrl={url} isOpen={isSidebarOpen} onClose={handleToggleSidebar} onOpen={handleToggleSidebar} />}
+        sidebar={<Sidebar filingId={filingId} sourceUrl={url} isOpen={isSidebarOpen} onClose={handleToggleSidebar} onOpen={handleToggleSidebar} highlightVersion={highlightVersion} onJumpToHighlight={handleJumpToHighlight} />}
         content={
           loading && !isInitialLoad ? (
             // Document switch loading - only show skeleton in content area
@@ -225,12 +240,14 @@ export default function ViewPage() {
                   selectedText={activeTextSelection.selectedText}
                   bounds={activeTextSelection.bounds}
                   containerRef={scrollContainerRef}
+                  filingId={filingId || ""}
                   filingUrl={url}
                   onConfirm={(sel) => {
                     setConfirmedSelection(sel)
                     setActiveTextSelection(null)
                   }}
                   onDismiss={() => setActiveTextSelection(null)}
+                  onHighlightSaved={handleHighlightSaved}
                 />
               )}
               {activeTableSelection && url && (
@@ -238,8 +255,10 @@ export default function ViewPage() {
                   selection={activeTableSelection.selection}
                   bounds={activeTableSelection.bounds}
                   containerRef={scrollContainerRef}
+                  filingId={filingId || ""}
                   filingUrl={url}
                   onDismiss={() => setActiveTableSelection(null)}
+                  onHighlightSaved={handleHighlightSaved}
                 />
               )}
             </div>

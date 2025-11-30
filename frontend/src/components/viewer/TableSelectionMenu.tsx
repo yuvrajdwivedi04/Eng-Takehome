@@ -2,21 +2,25 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { TableSelection, getShareableUrl } from "@/lib/selection-utils"
+import { saveHighlight, createHighlight } from "@/lib/highlights"
 import { Link2, Check, Copy } from "lucide-react"
 
 interface TableSelectionMenuProps {
   selection: TableSelection
   bounds: DOMRect
   containerRef: React.RefObject<HTMLElement>
+  filingId: string
   filingUrl: string
   onDismiss: () => void
+  onHighlightSaved?: () => void
 }
 
 export function TableSelectionMenu({ 
-  selection, bounds, containerRef, filingUrl, onDismiss 
+  selection, bounds, containerRef, filingId, filingUrl, onDismiss, onHighlightSaved 
 }: TableSelectionMenuProps) {
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const cleanupRef = useRef<(() => void) | null>(null)
   
   const rows = (selection.endRow ?? 0) - (selection.startRow ?? 0) + 1
   const cols = (selection.endCol ?? 0) - (selection.startCol ?? 0) + 1
@@ -34,18 +38,34 @@ export function TableSelectionMenu({
   }, [bounds, containerRef])
 
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current?.contains(e.target as Node)) return
-      onDismiss()
+    // Delay adding click listener to avoid dismissing from the same click that triggered selection
+    const timeoutId = setTimeout(() => {
+      const handleClick = (e: MouseEvent) => {
+        if (menuRef.current?.contains(e.target as Node)) return
+        onDismiss()
+      }
+      document.addEventListener('click', handleClick)
+      // Store cleanup in ref so we can clean up properly
+      cleanupRef.current = () => document.removeEventListener('click', handleClick)
+    }, 100)
+    
+    return () => {
+      clearTimeout(timeoutId)
+      cleanupRef.current?.()
     }
-    document.addEventListener('click', handleClick)
-    return () => document.removeEventListener('click', handleClick)
   }, [onDismiss])
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation()
     try {
       await navigator.clipboard.writeText(shareableUrl)
+      
+      // Save highlight to localStorage
+      const snippet = `Table selection: ${cellCount} cell${cellCount > 1 ? 's' : ''}`
+      const highlight = createHighlight(filingId, filingUrl, selection, snippet)
+      saveHighlight(highlight)
+      onHighlightSaved?.()
+      
       setCopied(true)
       setTimeout(() => { setCopied(false); onDismiss() }, 1500)
     } catch (error) {

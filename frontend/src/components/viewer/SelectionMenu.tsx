@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"
 import { TextSelection, getShareableUrl } from "@/lib/selection-utils"
+import { saveHighlight, createHighlight } from "@/lib/highlights"
 import { Link2, Check, Copy } from "lucide-react"
 
 interface SelectionMenuProps {
@@ -9,9 +10,11 @@ interface SelectionMenuProps {
   selectedText: string
   bounds: DOMRect
   containerRef: React.RefObject<HTMLElement>
+  filingId: string
   filingUrl: string
   onConfirm: (selection: TextSelection) => void
   onDismiss: () => void
+  onHighlightSaved?: () => void
 }
 
 function truncateText(text: string, maxLength: number): string {
@@ -37,9 +40,11 @@ export function SelectionMenu({
   selectedText,
   bounds, 
   containerRef, 
+  filingId,
   filingUrl, 
   onConfirm, 
-  onDismiss 
+  onDismiss,
+  onHighlightSaved
 }: SelectionMenuProps) {
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -84,6 +89,12 @@ export function SelectionMenu({
     
     try {
       await navigator.clipboard.writeText(shareableUrl)
+      
+      // Save highlight to localStorage
+      const highlight = createHighlight(filingId, filingUrl, selection, selectedText)
+      saveHighlight(highlight)
+      onHighlightSaved?.()
+      
       setCopied(true)
       setTimeout(() => {
         setCopied(false)

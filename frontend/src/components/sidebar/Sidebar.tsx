@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { fetchExhibits, Exhibit, getAllTablesXlsxUrl, getAllTablesCsvZipUrl } from "@/lib/api"
-import { Download, ChevronDown, ExternalLink, Loader2, X, PanelLeft } from "lucide-react"
+import { StoredHighlight, getHighlights, deleteHighlight } from "@/lib/highlights"
+import { getShareableUrl, Selection } from "@/lib/selection-utils"
+import { Download, ChevronDown, ExternalLink, Loader2, X, PanelLeft, Highlighter, Copy, Check, Trash2, CornerDownRight } from "lucide-react"
 
 const ORIGINAL_FILING_KEY = "endex_original_filing_url"
 
@@ -14,15 +16,23 @@ interface SidebarProps {
   isOpen: boolean
   onClose?: () => void
   onOpen?: () => void
+  highlightVersion?: number
+  onJumpToHighlight?: (selection: Selection) => void
 }
 
-export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen }: SidebarProps) {
+export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen, highlightVersion = 0, onJumpToHighlight }: SidebarProps) {
   const router = useRouter()
   const [exhibits, setExhibits] = useState<Exhibit[]>([])
   const [loading, setLoading] = useState(false)
   const [downloadOpen, setDownloadOpen] = useState(false)
   const [originalFilingUrl, setOriginalFilingUrl] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  
+  // Highlights state
+  const [highlightsOpen, setHighlightsOpen] = useState(false)
+  const [highlights, setHighlights] = useState<StoredHighlight[]>([])
+  const [copiedHighlightId, setCopiedHighlightId] = useState<string | null>(null)
+  const highlightsRef = useRef<HTMLDivElement>(null)
 
   // Track original filing URL (for determining which doc is active)
   useEffect(() => {
@@ -59,10 +69,45 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen }: Sideba
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDownloadOpen(false)
       }
+      if (highlightsRef.current && !highlightsRef.current.contains(e.target as Node)) {
+        setHighlightsOpen(false)
+      }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  // Load highlights when filingId or highlightVersion changes
+  useEffect(() => {
+    if (!filingId) {
+      setHighlights([])
+      return
+    }
+    setHighlights(getHighlights(filingId))
+  }, [filingId, highlightVersion])
+
+  // Highlight action handlers
+  const handleCopyHighlightLink = async (highlight: StoredHighlight) => {
+    const url = getShareableUrl(highlight.filingUrl, highlight.selection)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedHighlightId(highlight.id)
+      setTimeout(() => setCopiedHighlightId(null), 1500)
+    } catch (error) {
+      console.error("Failed to copy highlight link:", error)
+    }
+  }
+
+  const handleDeleteHighlight = (highlightId: string) => {
+    if (!filingId) return
+    deleteHighlight(filingId, highlightId)
+    setHighlights(getHighlights(filingId))
+  }
+
+  const handleJumpToHighlight = (highlight: StoredHighlight) => {
+    onJumpToHighlight?.(highlight.selection)
+    setHighlightsOpen(false)
+  }
 
   // Handle document click - navigate in same page
   const handleDocClick = (e: React.MouseEvent, url: string) => {
@@ -111,10 +156,10 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen }: Sideba
       <aside 
         className={cn(
           "border-r border-white/10 bg-dark h-full overflow-hidden transition-all duration-300 ease-in-out relative z-20 shadow-[4px_0_24px_rgba(0,0,0,0.25)]",
-          isOpen ? "w-64" : "w-0 border-r-0"
+          isOpen ? "w-80" : "w-0 border-r-0"
         )}
       >
-        <div className="w-64 h-full flex flex-col">
+        <div className="w-80 h-full flex flex-col">
           {/* Close button - top right */}
           {onClose && (
             <div className="flex justify-end px-3 pt-3">
@@ -233,6 +278,90 @@ export function Sidebar({ filingId, sourceUrl, isOpen, onClose, onOpen }: Sideba
                         </span>
                       </button>
                     ))
+                  )}
+                </div>
+              </div>
+
+              {/* My Highlights Section */}
+              <div>
+                <h2 className="text-xs font-semibold mb-3 text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                  <Highlighter className="h-3 w-3" />
+                  My Highlights
+                  {highlights.length > 0 && (
+                    <span className="text-brand-teal">({highlights.length})</span>
+                  )}
+                </h2>
+                
+                <div className="relative" ref={highlightsRef}>
+                  <button
+                    onClick={() => setHighlightsOpen(!highlightsOpen)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-300 border border-white/10 transition-colors",
+                      highlightsOpen ? "bg-brand-teal/10 text-brand-teal border-brand-teal/30" : "hover:bg-brand-teal/10 hover:text-brand-teal"
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Highlighter className="h-4 w-4" />
+                      {highlights.length === 0 ? "No highlights yet" : `${highlights.length} saved`}
+                    </span>
+                    <ChevronDown className={cn(
+                      "h-4 w-4 transition-transform",
+                      highlightsOpen && "rotate-180"
+                    )} />
+                  </button>
+                  
+                  {highlightsOpen && (
+                    <div className="border border-white/10 border-t-0 max-h-64 overflow-y-auto scrollbar-subtle">
+                      {highlights.length === 0 ? (
+                        <p className="text-sm text-gray-500 px-3 py-3">
+                          Select text in the filing and copy the link to save highlights here.
+                        </p>
+                      ) : (
+                        highlights.map((highlight, index) => (
+                          <div
+                            key={highlight.id}
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 transition-colors",
+                              index !== highlights.length - 1 && "border-b border-white/10"
+                            )}
+                          >
+                            {/* Snippet text */}
+                            <p className="flex-1 text-sm text-gray-300 line-clamp-2 leading-relaxed min-w-0">
+                              "{highlight.snippet}"
+                            </p>
+                            
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-0.5 flex-shrink-0">
+                              <button
+                                onClick={() => handleJumpToHighlight(highlight)}
+                                className="p-1.5 text-gray-500 hover:text-brand-teal hover:bg-white/10 rounded transition-colors"
+                                title="Jump to highlight"
+                              >
+                                <CornerDownRight className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleCopyHighlightLink(highlight)}
+                                className="p-1.5 text-gray-500 hover:text-brand-teal hover:bg-white/10 rounded transition-colors"
+                                title="Copy share link"
+                              >
+                                {copiedHighlightId === highlight.id ? (
+                                  <Check className="h-3.5 w-3.5" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleDeleteHighlight(highlight.id)}
+                                className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-white/10 rounded transition-colors"
+                                title="Remove highlight"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
