@@ -1,6 +1,6 @@
 # Endex SEC Filing Viewer - EndSec
 
-<iframe src="https://drive.google.com/file/d/1ekm6diy-5n1sRYQppkWnnHISqzQS1JzE/preview" width="720" height="405" allow="autoplay"></iframe>
+WATCH DEMO: https://drive.google.com/file/d/1ekm6diy-5n1sRYQppkWnnHISqzQS1JzE/preview
 
 
 EndSec is tool for exploring SEC filings with an AI-powered chat interface. Load any 10-K, 10-Q, or other SEC document by URL, ticker, or CIK, then ask questions about it. An LLM responds with answers grounded in the actual filing text, complete with citations you can click to jump to the source.
