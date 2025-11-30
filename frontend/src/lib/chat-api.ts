@@ -23,22 +23,32 @@ export interface ChatResponse {
   sources: Source[]
 }
 
+/**
+ * Generic fetch wrapper with consistent error handling.
+ * Default error message is "Failed to send message" for chat endpoints.
+ */
+async function apiFetch<T>(
+  path: string,
+  options?: RequestInit,
+  fallbackError = "Failed to send message"
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, options)
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: fallbackError }))
+    throw new Error(error.detail || fallbackError)
+  }
+
+  return response.json()
+}
+
 export async function sendChatMessage(
   filingId: string,
   messages: ChatMessage[]
 ): Promise<ChatResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
+  return apiFetch<ChatResponse>("/api/chat/message", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ filingId, messages }),
   })
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Failed to send message" }))
-    throw new Error(error.detail || "Failed to send message")
-  }
-
-  return response.json()
 }

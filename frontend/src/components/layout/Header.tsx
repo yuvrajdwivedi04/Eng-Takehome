@@ -28,7 +28,7 @@ export function Header({}: HeaderProps) {
         <span className="font-title text-xl">EndSec</span>
         <span className="text-gray-400 text-sm">by</span>
         <Image 
-          src="/fonts/logo.png" 
+          src="/images/logo.png" 
           alt="Endex" 
           width={150} 
           height={48} 

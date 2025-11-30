@@ -1,5 +1,24 @@
 import { API_BASE_URL } from "./constants";
 
+/**
+ * Generic fetch wrapper with consistent error handling.
+ * Preserves per-endpoint error messages via fallbackError parameter.
+ */
+async function apiFetch<T>(
+  path: string,
+  options?: RequestInit,
+  fallbackError = "Request failed"
+): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, options);
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: fallbackError }));
+    throw new Error(error.detail || fallbackError);
+  }
+
+  return response.json();
+}
+
 export interface FilingResponse {
   id: string;
   sourceUrl: string;
@@ -7,20 +26,15 @@ export interface FilingResponse {
 }
 
 export async function fetchFiling(url: string): Promise<FilingResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/filings/open-filing`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  return apiFetch<FilingResponse>(
+    "/api/filings/open-filing",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
     },
-    body: JSON.stringify({ url }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Failed to fetch filing" }));
-    throw new Error(error.detail || "Failed to fetch filing");
-  }
-
-  return response.json();
+    "Failed to fetch filing"
+  );
 }
 
 export function getTableCsvUrl(filingId: string, tableIndex: number): string {
@@ -52,14 +66,11 @@ export interface ExhibitsResponse {
 }
 
 export async function fetchExhibits(filingId: string): Promise<ExhibitsResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/filings/${filingId}/exhibits`);
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Failed to fetch exhibits" }));
-    throw new Error(error.detail || "Failed to fetch exhibits");
-  }
-  
-  return response.json();
+  return apiFetch<ExhibitsResponse>(
+    `/api/filings/${filingId}/exhibits`,
+    undefined,
+    "Failed to fetch exhibits"
+  );
 }
 
 // Company search types and API
@@ -79,28 +90,17 @@ export interface CompanyFilingsResponse {
 }
 
 export async function searchByTicker(ticker: string): Promise<CompanyFilingsResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/company/search/ticker/${encodeURIComponent(ticker.trim())}`
+  return apiFetch<CompanyFilingsResponse>(
+    `/api/company/search/ticker/${encodeURIComponent(ticker.trim())}`,
+    undefined,
+    "Failed to search by ticker"
   );
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Failed to search by ticker" }));
-    throw new Error(error.detail || "Failed to search by ticker");
-  }
-  
-  return response.json();
 }
 
 export async function searchByCIK(cik: string): Promise<CompanyFilingsResponse> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/company/search/cik/${encodeURIComponent(cik.trim())}`
+  return apiFetch<CompanyFilingsResponse>(
+    `/api/company/search/cik/${encodeURIComponent(cik.trim())}`,
+    undefined,
+    "Failed to search by CIK"
   );
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Failed to search by CIK" }));
-    throw new Error(error.detail || "Failed to search by CIK");
-  }
-  
-  return response.json();
 }
-

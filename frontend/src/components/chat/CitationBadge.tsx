@@ -65,10 +65,10 @@ export function CitationBadge({
         {index}
       </button>
 
-      {/* Tooltip with preview and share */}
+      {/* Tooltip with preview and share - left-aligned to avoid clipping */}
       {showTooltip && source && (
         <div
-          className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 bg-dark border border-white/20 shadow-xl animate-fade-in"
+          className="absolute z-50 bottom-full left-0 mb-2 w-72 p-3 bg-dark border border-white/20 shadow-xl animate-fade-in"
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
         >
@@ -91,8 +91,8 @@ export function CitationBadge({
               {copied ? "Copied!" : "Share"}
             </button>
           </div>
-          {/* Tooltip arrow */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-dark" />
+          {/* Tooltip arrow - positioned near left edge */}
+          <div className="absolute top-full left-2 border-8 border-transparent border-t-dark" />
         </div>
       )}
     </span>

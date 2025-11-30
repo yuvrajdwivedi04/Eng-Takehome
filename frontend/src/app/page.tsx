@@ -90,7 +90,7 @@ export default function Home() {
       {/* Logo - positioned to the right of the left vertical line, centered vertically in the header space */}
       <div className="fixed top-8 left-12 md:left-40 z-50 -translate-y-1/2">
         <Image 
-          src="/fonts/logo.png" 
+          src="/images/logo.png" 
           alt="EndSec" 
           width={180} 
           height={60} 

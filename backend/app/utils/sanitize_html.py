@@ -6,6 +6,7 @@ Removes scripts, styles, and unsafe content while preserving document structure
 from bs4 import BeautifulSoup
 import re
 
+from app.config import ELEMENT_SPLIT_MIN_LENGTH, ELEMENT_SPLIT_CHUNK_SIZE
 from app.utils.table_detection import is_data_table
 
 
@@ -46,6 +47,72 @@ def _unhide_sec_containers(soup: BeautifulSoup) -> None:
                     del element['style']
                 else:
                     element['style'] = style
+
+
+def _chunk_text_by_words(text: str, target_size: int) -> list[str]:
+    """Split text into chunks of ~target_size chars at word boundaries."""
+    words = text.split()
+    chunks = []
+    current = []
+    current_len = 0
+    
+    for word in words:
+        if current_len + len(word) + 1 > target_size and current:
+            chunks.append(" ".join(current))
+            current = [word]
+            current_len = len(word)
+        else:
+            current.append(word)
+            current_len += len(word) + 1
+    
+    if current:
+        chunks.append(" ".join(current))
+    
+    return chunks
+
+
+def _split_large_text_elements(soup: BeautifulSoup, start_index: int) -> int:
+    """
+    Split large pure-text elements into smaller indexed spans.
+    
+    Only processes elements that:
+    - Already have data-element-index
+    - Have text content > ELEMENT_SPLIT_MIN_LENGTH
+    - Contain ONLY text (no nested tags)
+    
+    Returns the next available element index.
+    """
+    index = start_index
+    
+    # Find indexed elements that are large and pure-text
+    for element in soup.find_all(attrs={"data-element-index": True}):
+        text = element.get_text(strip=True)
+        
+        # Skip small elements
+        if len(text) < ELEMENT_SPLIT_MIN_LENGTH:
+            continue
+        
+        # Skip elements with nested tags (only process pure text)
+        if element.find():  # Has child elements
+            continue
+        
+        # Split text into chunks at word boundaries
+        chunks = _chunk_text_by_words(text, ELEMENT_SPLIT_CHUNK_SIZE)
+        if len(chunks) <= 1:
+            continue
+        
+        # Clear element and fill with indexed spans
+        element.clear()
+        del element["data-element-index"]  # Remove parent index
+        
+        for chunk_text in chunks:
+            span = soup.new_tag("span")
+            span["data-element-index"] = str(index)
+            span.string = chunk_text + " "
+            element.append(span)
+            index += 1
+    
+    return index
 
 
 def sanitize(html: str) -> str:
@@ -165,6 +232,10 @@ def sanitize(html: str) -> str:
         if len(text_content) >= 10:  # Lower threshold for these typically shorter elements
             tag["data-element-index"] = str(element_index)
             element_index += 1
+    
+    # PASS 4: Split large pure-text elements into smaller indexed spans
+    # Improves citation highlight precision by creating finer-grained targets
+    element_index = _split_large_text_elements(soup, element_index)
     
     return str(soup)
 

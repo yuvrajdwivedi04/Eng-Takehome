@@ -137,7 +137,7 @@ function BrowseContent() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-4">
           <Link href="/">
             <Image 
-              src="/fonts/logo.png" 
+              src="/images/logo.png" 
               alt="EndSec" 
               width={120} 
               height={40} 

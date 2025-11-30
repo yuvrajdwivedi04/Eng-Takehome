@@ -1,19 +1,34 @@
 """
 Chat endpoint for RAG-powered Q&A on SEC filings
 """
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from datetime import datetime
+import asyncio
 import logging
-from openai import OpenAIError
+import re
+from datetime import datetime
 
+from fastapi import APIRouter, HTTPException
+from openai import OpenAIError
+from pydantic import BaseModel
+
+from app.config import (
+    EXHIBIT_MAX_COUNT,
+    EXHIBIT_FETCH_TIMEOUT,
+    MAX_CONVERSATION_HISTORY,
+    MIN_WORD_OVERLAP,
+    RETRIEVAL_TOP_K,
+)
+from app.services.exhibit_fetcher import ExhibitFetcher
 from app.services.filing_cache import filing_cache
-from app.services.rag import vector_store, chunk_filing, embed_texts
+from app.services.filing_fetcher import FilingFetcher
 from app.services.llm import answer_question
+from app.services.rag import chunk_filing, embed_texts, vector_store
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Common stopwords for text matching (used in element/preview selection)
+_STOPWORDS = frozenset({'the', 'a', 'an', 'is', 'was', 'were', 'for', 'of', 'to', 'in', 'and', 'or', 'that', 'this'})
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -42,7 +57,45 @@ class ChatResponse(BaseModel):
     sources: list[Source]
 
 
-import re
+async def _append_exhibit_content(filing_id: str, html: str) -> str:
+    """
+    Fetch exhibit HTML and append to main filing content.
+    Failures are logged and skipped - main filing always succeeds.
+    """
+    source_url = filing_cache.get_source_url(filing_id)
+    if not source_url:
+        return html
+    
+    try:
+        fetcher = ExhibitFetcher()
+        result = await fetcher.fetch_exhibits(source_url)
+        if not result or not result.exhibits:
+            return html
+        
+        exhibit_htmls = []
+        filing_fetcher = FilingFetcher()
+        
+        for exhibit in result.exhibits[:EXHIBIT_MAX_COUNT]:
+            try:
+                ex_html = await asyncio.wait_for(
+                    filing_fetcher.fetch(exhibit.url),
+                    timeout=EXHIBIT_FETCH_TIMEOUT
+                )
+                exhibit_htmls.append(ex_html)
+                logger.info(f"Fetched exhibit {exhibit.name} for filing {filing_id}")
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout fetching exhibit {exhibit.name}")
+            except Exception as e:
+                logger.warning(f"Failed to fetch exhibit {exhibit.name}: {e}")
+        
+        if exhibit_htmls:
+            return html + "\n".join(exhibit_htmls)
+        
+    except Exception as e:
+        logger.warning(f"Failed to fetch exhibit list for {filing_id}: {e}")
+    
+    return html
+
 
 def extract_and_filter_citations(answer: str, top_chunks: list[dict]) -> tuple[str, list[dict]]:
     """
@@ -103,8 +156,7 @@ def pick_best_element_index(chunk: dict, element_text_map: list[dict], answer_co
     search_words = set(search_text.lower().split())
     
     # Remove common stopwords for better matching
-    stopwords = {'the', 'a', 'an', 'is', 'was', 'were', 'for', 'of', 'to', 'in', 'and', 'or', 'that', 'this'}
-    search_words -= stopwords
+    search_words -= _STOPWORDS
     
     if not search_words:
         return fallback_index
@@ -114,10 +166,10 @@ def pick_best_element_index(chunk: dict, element_text_map: list[dict], answer_co
     
     # Search ALL elements in element_text_map
     for elem in element_text_map:
-        elem_words = set(elem["text"].lower().split()) - stopwords
+        elem_words = set(elem["text"].lower().split()) - _STOPWORDS
         overlap = len(elem_words & search_words)
         
-        if overlap < 2:
+        if overlap < MIN_WORD_OVERLAP:
             continue
         
         # Score by overlap count (more matching words = better)
@@ -139,8 +191,7 @@ def pick_best_preview(chunk_text: str, answer_context: str, preview_length: int 
     
     # Extract key words from context (ignore common words)
     context_words = set(answer_context.lower().split())
-    stopwords = {'the', 'a', 'an', 'is', 'was', 'were', 'for', 'of', 'to', 'in', 'and', 'or', 'that', 'this'}
-    context_words -= stopwords
+    context_words -= _STOPWORDS
     
     if not context_words:
         preview = chunk_text[:preview_length].strip()
@@ -162,7 +213,7 @@ def pick_best_preview(chunk_text: str, answer_context: str, preview_length: int 
             best_start = start
     
     # If no meaningful match, fall back to start
-    if best_score < 2:
+    if best_score < MIN_WORD_OVERLAP:
         preview = chunk_text[:preview_length].strip()
         return preview + "..."
     
@@ -203,6 +254,9 @@ async def send_message(request: ChatRequest):
                 detail="Filing not loaded. Please open the filing first via /open-filing."
             )
         
+        # Fetch and append exhibit content
+        html = await _append_exhibit_content(request.filingId, html)
+        
         try:
             chunks, element_text_map = chunk_filing(html)
             chunk_texts = [c["text"] for c in chunks]
@@ -227,7 +281,7 @@ async def send_message(request: ChatRequest):
         top_chunks = vector_store.retrieve(
             request.filingId,
             query_vector,
-            top_k=10,
+            top_k=RETRIEVAL_TOP_K,
             query_text=question
         )
         
@@ -243,7 +297,7 @@ async def send_message(request: ChatRequest):
         raise HTTPException(status_code=500, detail="Failed to retrieve information from filing.")
     
     # Answer generation
-    recent_history = request.messages[:-1][-8:]  # Last 8 messages, handles short lists
+    recent_history = request.messages[:-1][-MAX_CONVERSATION_HISTORY:]
     
     try:
         answer = await answer_question(

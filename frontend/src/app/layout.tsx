@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   },
   description: "Research SEC filings faster with AI-powered analysis. Browse 10-K, 10-Q, 8-K filings with intelligent chat, table exports, and document navigation.",
   icons: {
-    icon: "/fonts/favicon.jpeg",
+    icon: "/images/favicon.jpeg",
   },
   openGraph: {
     title: "EndSec by Endex",

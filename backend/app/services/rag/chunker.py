@@ -7,7 +7,13 @@ import tiktoken
 from bs4 import BeautifulSoup
 import logging
 
-from app.config import TOKENIZER_MODEL
+from app.config import (
+    TOKENIZER_MODEL,
+    CHUNK_HARD_MAX_TOKENS,
+    CHUNK_MAX_TOKENS,
+    CHUNK_OVERLAP_TOKENS,
+    MIN_WORD_OVERLAP,
+)
 from app.utils.sanitize_html import sanitize
 from app.services.rag.table_formatter import format_table_for_llm
 
@@ -94,7 +100,7 @@ def chunk_filing(html: str) -> tuple[list[dict], list[dict]]:
         text = text.replace(placeholder, f"\n\n{combined_markdown}\n\n", 1)
     
     # Chunk the combined text (with markdown tables)
-    chunks = chunk_text(text, max_tokens=1000, overlap=200)
+    chunks = chunk_text(text, max_tokens=CHUNK_MAX_TOKENS, overlap=CHUNK_OVERLAP_TOKENS)
     
     # Return chunks with metadata including element_indices
     result = []
@@ -137,7 +143,7 @@ def find_element_indices_for_chunk(chunk_text: str, element_text_map: list[dict]
         elem_words = set(elem_text.split())
         overlap = len(elem_words & chunk_words)
         
-        if overlap < 2:
+        if overlap < MIN_WORD_OVERLAP:
             continue
         
         # Score: proportion of element words found in chunk
@@ -163,10 +169,10 @@ def chunk_text(text: str, max_tokens: int = 1000, overlap: int = 200) -> list[st
         end = start + max_tokens
         chunk_tokens = tokens[start:end]
         
-        # Enforce hard max of 1500 tokens
-        if len(chunk_tokens) > 1500:
-            chunk_tokens = chunk_tokens[:1500]
-            logger.warning(f"Truncated chunk to 1500 tokens")
+        # Enforce hard max token limit
+        if len(chunk_tokens) > CHUNK_HARD_MAX_TOKENS:
+            chunk_tokens = chunk_tokens[:CHUNK_HARD_MAX_TOKENS]
+            logger.warning(f"Truncated chunk to {CHUNK_HARD_MAX_TOKENS} tokens")
         
         chunks.append(encoding.decode(chunk_tokens))
         start += max_tokens - overlap
