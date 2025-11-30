@@ -102,10 +102,6 @@ class VectorStore:
         # Get top K by combined score
         top_indices = np.argsort(combined_scores)[-top_k:][::-1]
         
-        # Log hybrid search details for debugging
-        logger.debug(f"Hybrid search: sem_range=[{semantic_scores.min():.3f}, {semantic_scores.max():.3f}], "
-                     f"kw_range=[{keyword_scores.min():.3f}, {keyword_scores.max():.3f}]")
-        
         return [
             {
                 **chunks[i],

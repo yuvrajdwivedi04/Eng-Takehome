@@ -5,11 +5,8 @@ full context (row label + period + value) in each entry.
 """
 
 import re
-import logging
 from typing import Optional
 from bs4 import Tag
-
-logger = logging.getLogger(__name__)
 
 
 def extract_cell_text(cell) -> str:
@@ -80,17 +77,14 @@ def detect_table_type(grid: list[list[str]], headers: list[str]) -> str:
     
     for keyword in financial_keywords:
         if keyword in all_text:
-            logger.debug(f"Financial table detected via keyword: '{keyword}'")
             return "financial"
     
     # Check for currency symbols anywhere
     if re.search(r'[\$€£¥]', all_text):
-        logger.debug("Financial table detected via currency symbol")
         return "financial"
     
     # Check for numbers with parentheses (negative values) - common in financial tables
     if re.search(r'\(\s*\d[\d,]*\s*\)', all_text):
-        logger.debug("Financial table detected via parenthetical numbers")
         return "financial"
     
     # Check for date patterns in headers (likely a financial time series)
@@ -102,7 +96,6 @@ def detect_table_type(grid: list[list[str]], headers: list[str]) -> str:
     
     for pattern in date_patterns:
         if re.search(pattern, all_text):
-            logger.debug(f"Financial table detected via date pattern")
             return "financial"
     
     return "general"
@@ -186,12 +179,6 @@ def extract_column_periods(headers: list[str], grid: list[list[str]] = None) -> 
         
         periods.append(None)
     
-    # If no periods found at all, return None for all
-    if not any(periods):
-        logger.debug(f"No date periods found in headers: {headers[:3]}...")
-    else:
-        logger.debug(f"Found periods: {[p for p in periods if p][:5]}")
-    
     return periods
 
 
@@ -245,8 +232,6 @@ def format_financial_table(
     if not value_columns and grid and len(grid[0]) > 1:
         value_columns = [(i, f"Column {i+1}") for i in range(1, len(grid[0]))]
     
-    logger.debug(f"format_financial_table: {len(value_columns)} value columns detected")
-    
     # Process each row
     for row in grid:
         if not row:
@@ -273,7 +258,6 @@ def format_financial_table(
                     lines.append(f"{row_label} for {period} = {value}")
     
     result = "\n".join(lines)
-    logger.debug(f"format_financial_table produced {len(lines)} lines, {len(result)} chars")
     return result
 
 
@@ -393,8 +377,6 @@ def format_table_for_llm(table_element: Tag, fallback_title: str = "") -> str:
     
     # Detect table type
     table_type = detect_table_type(grid, headers)
-    
-    logger.debug(f"Table detected as '{table_type}': {title[:50] if title else 'no title'}")
     
     if table_type == "financial":
         # Extract period information from headers AND grid (SEC tables often have dates in sub-header rows)

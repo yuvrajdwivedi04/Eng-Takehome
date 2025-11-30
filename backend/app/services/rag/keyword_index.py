@@ -127,7 +127,6 @@ class BM25Index:
             "num_docs": num_docs
         }
         self.store.move_to_end(filing_id)
-        logger.debug(f"BM25 indexed {num_docs} chunks for {filing_id}")
     
     def _bm25_score(self, query_tokens: List[str], doc_idx: int, data: dict) -> float:
         """Calculate BM25 score for a single document."""
@@ -190,7 +189,6 @@ class BM25Index:
         """Evict a filing from the index."""
         if filing_id in self.store:
             del self.store[filing_id]
-            logger.debug(f"Evicted {filing_id} from BM25Index")
 
 
 # Singleton instance

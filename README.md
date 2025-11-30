@@ -10,6 +10,23 @@ A full-stack application for viewing, analyzing, and interacting with SEC filing
 
 ## Getting Started
 
+### Environment Variables
+
+#### Backend (`backend/.env`)
+```bash
+# Required: OpenAI API key for chat and embeddings
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Optional: Frontend URL for deep links in exports (default: http://localhost:3000)
+FRONTEND_URL=http://localhost:3000
+```
+
+#### Frontend (`frontend/.env.local`)
+```bash
+# Optional: Backend API URL (default: http://localhost:8000)
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
 ### Backend Setup
 
 ```bash
@@ -17,6 +34,10 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+# Create .env file with your OpenAI API key
+echo "OPENAI_API_KEY=your-key-here" > .env
+
 uvicorn app.main:app --reload
 ```
 

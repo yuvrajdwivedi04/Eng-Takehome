@@ -40,7 +40,6 @@ class FilingCache:
     def evict(self, filing_id: str):
         if filing_id in self._cache:
             del self._cache[filing_id]
-            logger.debug(f"Evicted {filing_id} from FilingCache")
 
 
 filing_cache = FilingCache()

@@ -5,13 +5,14 @@ Uses BeautifulSoup for reliable colspan/rowspan handling.
 This module is EXPORT-ONLY - does not affect RAG embedding pipeline.
 """
 
+import csv
+import logging
+import os
 from dataclasses import dataclass
 from io import StringIO, BytesIO
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.styles import Font
-import csv
-import logging
 
 from app.utils.table_detection import is_data_table
 
@@ -285,14 +286,14 @@ def generate_xlsx(table: TableData, source_url: str = None) -> bytes:
     return buffer.getvalue()
 
 
-def build_table_link(filing_url: str, table_index: int, base_url: str = "http://localhost:3000") -> str:
+def build_table_link(filing_url: str, table_index: int, base_url: str = None) -> str:
     """
     Build a deep link URL that opens the filing and highlights the specific table.
     
     Args:
         filing_url: Original SEC filing URL
         table_index: Index of the table
-        base_url: Base URL of the frontend app
+        base_url: Base URL of the frontend app (defaults to FRONTEND_URL env var)
         
     Returns:
         Complete URL with selection parameter
@@ -300,6 +301,9 @@ def build_table_link(filing_url: str, table_index: int, base_url: str = "http://
     import base64
     import json
     from urllib.parse import urlencode
+    
+    if base_url is None:
+        base_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
     
     selection = {"type": "table", "tableIndex": table_index}
     encoded = base64.b64encode(json.dumps(selection).encode()).decode()

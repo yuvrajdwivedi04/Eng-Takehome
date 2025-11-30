@@ -173,7 +173,6 @@ def table_to_markdown(table_element) -> str | list[str]:
     # Check if table is too large (4000 tokens keeps most financial tables intact)
     token_count = count_tokens(markdown)
     if token_count > 4000:
-        logger.debug(f"Large table detected ({token_count} tokens), splitting by rows")
         return split_large_table(headers, grid, max_tokens=4000)
     
     return markdown
@@ -184,15 +183,9 @@ def extract_tables(soup: BeautifulSoup) -> list[dict]:
     tables = []
     table_elements = soup.find_all("table")
     
-    logger.info(f"[DEBUG] Found {len(table_elements)} table elements in HTML")
-    
     for i, table_elem in enumerate(table_elements):
         try:
-            # DEBUG: Check if this table contains "comprehensive income"
-            table_text = table_elem.get_text(separator=" ", strip=True).lower()
-            has_comp_income = "comprehensive income" in table_text
-            
-            # Use new LLM-optimized formatter (handles both financial and general tables)
+            # Use LLM-optimized formatter (handles both financial and general tables)
             formatted = format_table_for_llm(table_elem)
             
             if formatted:  # Skip empty tables
@@ -201,15 +194,10 @@ def extract_tables(soup: BeautifulSoup) -> list[dict]:
                     "index": i,
                     "is_split": False
                 })
-                if has_comp_income:
-                    # Log a preview of how the table was formatted
-                    preview = formatted[:300].replace('\n', ' ')
-                    logger.info(f"[DEBUG] Table {i} contains 'comprehensive income' - formatted ({len(formatted)} chars): {preview}...")
         except Exception as e:
             logger.warning(f"Failed to convert table {i}: {str(e)}")
             # Continue with next table - don't crash entire process
     
-    logger.info(f"[DEBUG] Extracted {len(tables)} table chunks from {len(table_elements)} tables")
     return tables
 
 
@@ -218,8 +206,6 @@ def chunk_filing(html: str) -> list[dict]:
     Phase 3B: Extract tables, convert to markdown, chunk with structure preserved.
     Captures element indices from data-element-index attributes for source linking.
     """
-    logger.info(f"[DEBUG] HTML length: {len(html)} chars")
-    
     # Sanitize on-the-fly to get element indices (sanitized HTML has data-element-index)
     sanitized_html = sanitize(html)
     sanitized_soup = BeautifulSoup(sanitized_html, "html.parser")
@@ -236,8 +222,6 @@ def chunk_filing(html: str) -> list[dict]:
                 "text": text_content,  # Full text, not truncated
                 "is_table_cell": is_table_cell
             })
-    
-    logger.info(f"[DEBUG] Found {len(element_text_map)} elements with data-element-index")
     
     # Continue with RAW html for chunking (embeddings should be based on raw content)
     soup = BeautifulSoup(html, "html.parser")
@@ -267,33 +251,14 @@ def chunk_filing(html: str) -> list[dict]:
         combined_markdown = "\n\n".join(markdown_parts)
         text = text.replace(placeholder, f"\n\n{combined_markdown}\n\n", 1)
     
-    # DEBUG: Check if comprehensive income is in the final text
-    if "comprehensive income" in text.lower():
-        # Find the context around it
-        idx = text.lower().find("comprehensive income")
-        context_start = max(0, idx - 100)
-        context_end = min(len(text), idx + 200)
-        logger.info(f"[DEBUG] 'comprehensive income' found in final text at position {idx}")
-        logger.info(f"[DEBUG] Context: ...{text[context_start:context_end].replace(chr(10), ' ')}...")
-    else:
-        logger.warning(f"[DEBUG] 'comprehensive income' NOT FOUND in final text!")
-    
-    logger.info(f"[DEBUG] Final text length: {len(text)} chars")
-    
     # Chunk the combined text (with markdown tables)
     chunks = chunk_text(text, max_tokens=1000, overlap=200)
-    
-    logger.info(f"[DEBUG] Created {len(chunks)} chunks")
     
     # Return chunks with metadata including element_indices
     result = []
     for i, chunk in enumerate(chunks):
         # Find all matching element indices for this chunk
         element_indices = find_element_indices_for_chunk(chunk, element_text_map)
-        
-        # DEBUG: Check which chunks contain "comprehensive income"
-        if "comprehensive income" in chunk.lower():
-            logger.info(f"[DEBUG] Chunk {i} contains 'comprehensive income' (tokens: {count_tokens(chunk)})")
         
         # Detect table content (both markdown "|" and new row-by-row "•" format)
         has_table = "| " in chunk or "  •" in chunk
