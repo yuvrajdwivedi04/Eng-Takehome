@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from "react"
 import { ChatMessage as ChatMessageType } from "./types"
 import { ChatMessage } from "./ChatMessage"
 import { ChatInput } from "./ChatInput"
+import { ThinkingIndicator } from "./ThinkingIndicator"
 import { sendChatMessage } from "@/lib/chat-api"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
+import { TextSelection } from "@/lib/selection-utils"
 
 interface ChatPanelProps {
   filingId: string
@@ -15,11 +17,13 @@ interface ChatPanelProps {
   onMessagesChange: (messages: ChatMessageType[]) => void
   onClose: () => void
   onSourceClick?: (elementIndex: number) => void
+  onConfirmSelection?: (selection: TextSelection) => void
+  onHighlightSaved?: () => void
 }
 
 const PANEL_WIDTH = 480
 
-export function ChatPanel({ filingId, filingUrl, isOpen, messages, onMessagesChange, onClose, onSourceClick }: ChatPanelProps) {
+export function ChatPanel({ filingId, filingUrl, isOpen, messages, onMessagesChange, onClose, onSourceClick, onConfirmSelection, onHighlightSaved }: ChatPanelProps) {
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -122,10 +126,14 @@ export function ChatPanel({ filingId, filingUrl, isOpen, messages, onMessagesCha
                 <ChatMessage 
                   key={message.id} 
                   message={message}
+                  filingId={filingId}
                   filingUrl={filingUrl}
                   onSourceClick={onSourceClick}
+                  onConfirmSelection={onConfirmSelection}
+                  onHighlightSaved={onHighlightSaved}
                 />
               ))}
+              {isLoading && <ThinkingIndicator />}
               <div ref={messagesEndRef} />
             </div>
           )}

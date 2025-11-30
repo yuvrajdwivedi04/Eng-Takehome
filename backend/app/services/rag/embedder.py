@@ -1,3 +1,4 @@
+import asyncio
 from openai import OpenAI
 import numpy as np
 from typing import List
@@ -5,8 +6,11 @@ from typing import List
 client = OpenAI()
 
 
-def embed_texts(texts: List[str]) -> List[List[float]]:
-    """Embed texts using OpenAI API. Batch up to 100 at a time."""
+async def embed_texts(texts: List[str]) -> List[List[float]]:
+    """Embed texts using OpenAI API. Batch up to 100 at a time.
+    
+    Uses asyncio.to_thread to avoid blocking the event loop.
+    """
     if not texts:
         return []
     
@@ -14,7 +18,8 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
     all_embeddings = []
     for i in range(0, len(texts), 100):
         batch = texts[i:i+100]
-        response = client.embeddings.create(
+        response = await asyncio.to_thread(
+            client.embeddings.create,
             model="text-embedding-3-small",
             input=batch
         )

@@ -90,33 +90,89 @@ def extract_context_before_citation(answer: str, citation_num: int) -> str:
 def pick_best_element_index(chunk: dict, element_text_map: list[dict], answer_context: str = "") -> int:
     """
     Pick the element_index that best matches the answer context.
-    Falls back to preview-based matching if no context provided.
+    Searches ALL elements in element_text_map, not just pre-computed chunk indices.
+    Falls back to chunk's element_index if no good match found.
     """
-    indices = chunk["metadata"].get("element_indices", [])
-    if not indices:
-        return chunk["metadata"].get("element_index", 0)
+    fallback_index = chunk["metadata"].get("element_index", 0)
     
-    if len(indices) == 1 or not element_text_map:
-        return indices[0]
+    if not element_text_map:
+        return fallback_index
     
     # Use answer context if provided, otherwise fall back to preview
     search_text = answer_context if answer_context else chunk["text"][:150]
     search_words = set(search_text.lower().split())
     
-    best_index = indices[0]
+    # Remove common stopwords for better matching
+    stopwords = {'the', 'a', 'an', 'is', 'was', 'were', 'for', 'of', 'to', 'in', 'and', 'or', 'that', 'this'}
+    search_words -= stopwords
+    
+    if not search_words:
+        return fallback_index
+    
+    best_index = fallback_index
     best_score = 0
     
-    for idx in indices:
-        elem = next((e for e in element_text_map if e["index"] == idx), None)
-        if not elem:
+    # Search ALL elements in element_text_map
+    for elem in element_text_map:
+        elem_words = set(elem["text"].lower().split()) - stopwords
+        overlap = len(elem_words & search_words)
+        
+        if overlap < 2:
             continue
-        elem_words = set(elem["text"].lower().split())
-        score = len(elem_words & search_words)
-        if score > best_score:
-            best_score = score
-            best_index = idx
+        
+        # Score by overlap count (more matching words = better)
+        if overlap > best_score:
+            best_score = overlap
+            best_index = elem["index"]
     
     return best_index
+
+
+def pick_best_preview(chunk_text: str, answer_context: str, preview_length: int = 150) -> str:
+    """
+    Find the portion of chunk_text most relevant to answer_context.
+    Falls back to first preview_length chars if no good match found.
+    """
+    if not answer_context or len(chunk_text) <= preview_length:
+        preview = chunk_text[:preview_length].strip()
+        return preview + ("..." if len(chunk_text) > preview_length else "")
+    
+    # Extract key words from context (ignore common words)
+    context_words = set(answer_context.lower().split())
+    stopwords = {'the', 'a', 'an', 'is', 'was', 'were', 'for', 'of', 'to', 'in', 'and', 'or', 'that', 'this'}
+    context_words -= stopwords
+    
+    if not context_words:
+        preview = chunk_text[:preview_length].strip()
+        return preview + "..."
+    
+    # Slide a window through chunk, score by word overlap
+    chunk_lower = chunk_text.lower()
+    best_start = 0
+    best_score = 0
+    
+    # Check every 50 chars as window start
+    step = 50
+    for start in range(0, max(1, len(chunk_text) - preview_length), step):
+        window = chunk_lower[start:start + preview_length]
+        window_words = set(window.split())
+        score = len(context_words & window_words)
+        if score > best_score:
+            best_score = score
+            best_start = start
+    
+    # If no meaningful match, fall back to start
+    if best_score < 2:
+        preview = chunk_text[:preview_length].strip()
+        return preview + "..."
+    
+    preview = chunk_text[best_start:best_start + preview_length].strip()
+    
+    # Add ellipsis indicators
+    prefix = "..." if best_start > 0 else ""
+    suffix = "..." if best_start + preview_length < len(chunk_text) else ""
+    
+    return prefix + preview + suffix
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -171,7 +227,7 @@ async def send_message(request: ChatRequest):
                 preview = chunk["text"][:200].replace("\n", " ")
                 logger.info(f"[DEBUG] Chunk {i} (table={has_table}): {preview}...")
             
-            vectors = embed_texts(chunk_texts)
+            vectors = await embed_texts(chunk_texts)
             vector_store.ingest(request.filingId, chunks, vectors, element_text_map)
             logger.info(f"[DEBUG] Ingested {len(chunks)} chunks for filing {request.filingId}")
         except OpenAIError as e:
@@ -189,7 +245,7 @@ async def send_message(request: ChatRequest):
     logger.info(f"[DEBUG] Question: {question}")
     
     try:
-        query_vector = embed_texts([question])[0]
+        query_vector = (await embed_texts([question]))[0]
         top_chunks = vector_store.retrieve(
             request.filingId,
             query_vector,
@@ -257,7 +313,7 @@ async def send_message(request: ChatRequest):
         context = extract_context_before_citation(filtered_answer, i + 1)
         sources.append(Source(
             id=chunk["id"],
-            preview=chunk["text"][:150].strip() + ("..." if len(chunk["text"]) > 150 else ""),
+            preview=pick_best_preview(chunk["text"], context),
             elementIndex=pick_best_element_index(chunk, element_text_map, context),
             score=round(chunk["score"], 3)
         ))

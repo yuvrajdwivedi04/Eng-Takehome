@@ -57,13 +57,18 @@ export default function ViewPage() {
   const [highlightVersion, setHighlightVersion] = useState(0)
   const scrollContainerRef = useRef<HTMLElement>(null)
 
-  // Handler for when a source is clicked in the chat panel
+  // Handler for when a source is clicked in the chat panel (temporary highlight)
   const handleSourceClick = useCallback((elementIndex: number) => {
     setHighlightedElement(elementIndex)
     // Auto-clear highlight after 5 seconds
     setTimeout(() => {
       setHighlightedElement(null)
     }, 5000)
+  }, [])
+
+  // Handler for when a citation is shared (persistent highlight)
+  const handleConfirmSelection = useCallback((selection: TextSelection) => {
+    setConfirmedSelection(selection)
   }, [])
 
   // Handler for when a saved highlight is clicked in the sidebar
@@ -273,6 +278,8 @@ export default function ViewPage() {
             onMessagesChange={setChatMessages}
             onClose={handleToggleChat}
             onSourceClick={handleSourceClick}
+            onConfirmSelection={handleConfirmSelection}
+            onHighlightSaved={handleHighlightSaved}
           />
         )}
       />

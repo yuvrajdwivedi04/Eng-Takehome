@@ -3,14 +3,18 @@ import { SourcesList } from "./SourcesList"
 import { CitationBadge } from "./CitationBadge"
 import { parseCitations, getSourceByCitation } from "@/lib/citation-parser"
 import { cn } from "@/lib/utils"
+import { TextSelection } from "@/lib/selection-utils"
 
 interface ChatMessageProps {
   message: ChatMessageType
+  filingId: string
   filingUrl: string
   onSourceClick?: (elementIndex: number) => void
+  onConfirmSelection?: (selection: TextSelection) => void
+  onHighlightSaved?: () => void
 }
 
-export function ChatMessage({ message, filingUrl, onSourceClick }: ChatMessageProps) {
+export function ChatMessage({ message, filingId, filingUrl, onSourceClick, onConfirmSelection, onHighlightSaved }: ChatMessageProps) {
   const isUser = message.role === 'user'
   const isError = message.status === 'error'
   const isSending = message.status === 'sending'
@@ -22,7 +26,11 @@ export function ChatMessage({ message, filingUrl, onSourceClick }: ChatMessagePr
   const shouldRenderCitations = isAssistant && hasSources && isMessageComplete && onSourceClick
 
   return (
-    <div className={cn("flex w-full mb-4", isUser ? "justify-end" : "justify-start")}>
+    <div className={cn(
+      "flex w-full mb-4",
+      isUser ? "justify-end" : "justify-start",
+      isAssistant && "message-fade-in"
+    )}>
       <div
         className={cn(
           "max-w-[80%] rounded-lg px-4 py-2",
@@ -56,8 +64,12 @@ export function ChatMessage({ message, filingUrl, onSourceClick }: ChatMessagePr
         
         {hasSources && onSourceClick && (
           <SourcesList 
-            sources={message.sources!} 
-            onSourceClick={onSourceClick} 
+            sources={message.sources!}
+            filingId={filingId}
+            filingUrl={filingUrl}
+            onSourceClick={onSourceClick}
+            onConfirmSelection={onConfirmSelection}
+            onHighlightSaved={onHighlightSaved}
           />
         )}
         

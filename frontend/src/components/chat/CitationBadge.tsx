@@ -71,17 +71,17 @@ export function CitationBadge({
           <p className="text-xs text-gray-300 line-clamp-3 mb-2">
             {source.preview}
           </p>
-          <div className="flex items-center justify-between pt-2 border-t border-white/10">
+          <div className="flex items-center gap-2 pt-2 border-t border-white/10">
             <button
               onClick={handleClick}
-              className="flex items-center gap-1 text-xs text-brand-teal hover:text-brand-teal/80 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs text-brand-teal hover:bg-brand-teal/10 transition-colors rounded"
             >
               <ExternalLink className="w-3 h-3" />
-              View in document
+              View
             </button>
             <button
               onClick={handleShare}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs text-gray-300 hover:text-brand-teal hover:bg-brand-teal/10 transition-colors rounded"
             >
               <Link2 className="w-3 h-3" />
               {copied ? "Copied!" : "Share"}

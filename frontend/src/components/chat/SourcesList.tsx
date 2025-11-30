@@ -4,13 +4,18 @@ import { useState } from "react"
 import { Source } from "@/lib/chat-api"
 import { SourceCard } from "./SourceCard"
 import { ChevronDown, ChevronUp, BookOpen } from "lucide-react"
+import { TextSelection } from "@/lib/selection-utils"
 
 interface SourcesListProps {
   sources: Source[]
+  filingId: string
+  filingUrl: string
   onSourceClick: (elementIndex: number) => void
+  onConfirmSelection?: (selection: TextSelection) => void
+  onHighlightSaved?: () => void
 }
 
-export function SourcesList({ sources, onSourceClick }: SourcesListProps) {
+export function SourcesList({ sources, filingId, filingUrl, onSourceClick, onConfirmSelection, onHighlightSaved }: SourcesListProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   if (sources.length === 0) {
@@ -39,7 +44,11 @@ export function SourcesList({ sources, onSourceClick }: SourcesListProps) {
               key={source.id}
               source={source}
               index={index}
+              filingId={filingId}
+              filingUrl={filingUrl}
               onClick={onSourceClick}
+              onConfirmSelection={onConfirmSelection}
+              onHighlightSaved={onHighlightSaved}
             />
           ))}
         </div>

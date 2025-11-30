@@ -249,6 +249,58 @@
   overflow: hidden;
 }
 
+/* Thinking indicator loader */
+.thinking-loader {
+  width: 20px;
+  aspect-ratio: 1;
+  --g: conic-gradient(from -90deg at 3.5px 3.5px, #3fc79e 90deg, transparent 0);
+  background: var(--g), var(--g), var(--g);
+  background-size: 50% 50%;
+  animation: thinking-loader-anim 1s infinite;
+}
+
+@keyframes thinking-loader-anim {
+  0%   { background-position: 0 0, 3.5px 3.5px, 7px 7px }
+  50%  { background-position: 0 7px, 3.5px 3.5px, 7px 0 }
+  100% { background-position: 7px 7px, 3.5px 3.5px, 0 0 }
+}
+
+/* Thinking text shimmer */
+.thinking-text {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 255, 255, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: thinking-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes thinking-shimmer {
+  0% { background-position: 200% 0 }
+  100% { background-position: -200% 0 }
+}
+
+/* Message fade-in animation */
+.message-fade-in {
+  animation: message-fade-in 0.4s ease-out forwards;
+}
+
+@keyframes message-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
