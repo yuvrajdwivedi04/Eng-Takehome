@@ -1,9 +1,14 @@
 import asyncio
+from functools import lru_cache
 from openai import OpenAI
 import numpy as np
 from typing import List
 
-client = OpenAI()
+
+@lru_cache(maxsize=1)
+def get_client() -> OpenAI:
+    """Lazily initialize OpenAI client on first use."""
+    return OpenAI()
 
 
 async def embed_texts(texts: List[str]) -> List[List[float]]:
@@ -19,7 +24,7 @@ async def embed_texts(texts: List[str]) -> List[List[float]]:
     for i in range(0, len(texts), 100):
         batch = texts[i:i+100]
         response = await asyncio.to_thread(
-            client.embeddings.create,
+            get_client().embeddings.create,
             model="text-embedding-3-small",
             input=batch
         )

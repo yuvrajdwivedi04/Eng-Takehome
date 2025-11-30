@@ -31,11 +31,15 @@ export function CitationBadge({
     e.stopPropagation()
     if (!source) return
 
+    // Get actual element text length for proper highlighting
+    const element = document.querySelector(`[data-element-index="${source.elementIndex}"]`)
+    const textLength = element?.textContent?.length || 100
+
     const selection = {
       type: "text" as const,
       elementIndex: source.elementIndex,
       startOffset: 0,
-      endOffset: 100,
+      endOffset: textLength,
     }
 
     const url = getShareableUrl(filingUrl, selection)

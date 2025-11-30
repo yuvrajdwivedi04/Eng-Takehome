@@ -1,9 +1,14 @@
+from functools import lru_cache
 from openai import OpenAI
 import asyncio
 from typing import List, Dict
 from .prompts import ANSWER_PROMPT
 
-client = OpenAI()
+
+@lru_cache(maxsize=1)
+def get_client() -> OpenAI:
+    """Lazily initialize OpenAI client on first use."""
+    return OpenAI()
 
 
 async def answer_question(
@@ -35,7 +40,7 @@ async def answer_question(
     try:
         response = await asyncio.wait_for(
             asyncio.to_thread(
-                client.chat.completions.create,
+                get_client().chat.completions.create,
                 model="gpt-4-turbo-preview",
                 messages=messages,
                 temperature=0.2,

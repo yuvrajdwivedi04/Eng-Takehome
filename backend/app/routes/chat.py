@@ -8,10 +8,9 @@ from app.services.filing_cache import filing_cache
 from app.services.rag import VectorStore, chunk_filing, embed_texts
 from app.services.llm import answer_question
 
-# Configure logging to show INFO level
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 vector_store = VectorStore(max_filings=50)

@@ -56,12 +56,19 @@ export default function ViewPage() {
   const [highlightedElement, setHighlightedElement] = useState<number | null>(null)
   const [highlightVersion, setHighlightVersion] = useState(0)
   const scrollContainerRef = useRef<HTMLElement>(null)
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Handler for when a source is clicked in the chat panel (temporary highlight)
   const handleSourceClick = useCallback((elementIndex: number) => {
+    // Clear any existing timeout
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current)
+    }
+    
     setHighlightedElement(elementIndex)
+    
     // Auto-clear highlight after 5 seconds
-    setTimeout(() => {
+    highlightTimeoutRef.current = setTimeout(() => {
       setHighlightedElement(null)
     }, 5000)
   }, [])
@@ -84,7 +91,14 @@ export default function ViewPage() {
     setHighlightVersion(v => v + 1)
   }, [])
 
-
+  // Cleanup highlight timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!url) {
